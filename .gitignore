@@ -1,0 +1,10 @@
+output/*
+dist/*
+data/*
+lib/__pycache__/*
+build/*
+config.ini
+.vscode/*
+*.exe
+*.txt
+*.zip
