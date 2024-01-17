@@ -1,0 +1,5 @@
+output/*
+dist/*
+lib/__pycache__/*
+build/*
+config.ini
