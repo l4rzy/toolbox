@@ -2,6 +2,8 @@ import time
 import json, threading
 import subprocess
 
+from .util import resource_path
+
 class CmdWrapper:
     def __init__(self, exe='', callback = None):
         self.exe = exe
@@ -28,7 +30,7 @@ class CmdWrapper:
         self.process.kill()
 
 class Curl(CmdWrapper):
-    def __init__(self, exe='curl\\curl.exe', callback = None):
+    def __init__(self, exe=resource_path('curl\\curl.exe'), callback = None):
         super().__init__(exe, callback)
 
     def query(self, url, headers = {}, cookies = {}):

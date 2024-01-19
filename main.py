@@ -9,21 +9,9 @@ from lib.CTkListbox import CTkListbox
 from lib.tkdial import Meter
 # from lib.CTkTable import CTkTable
 from pycountry import countries
+from lib.util  import resource_path
 
-widget.set_default_color_theme('lib\\theme.json')
-
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
-
-class DTSListView(CTkListbox):
-    pass
+widget.set_default_color_theme(resource_path('lib\\theme.json'))
 
 class DTSLabelWithBtn(widget.CTkFrame):
     def __init__(self, master, web_btn=False, copy_btn=True, max_width=400, **kwargs):
@@ -34,9 +22,9 @@ class DTSLabelWithBtn(widget.CTkFrame):
         self.wbtn = None
         from PIL import Image
         if copy_btn:
-            self.cbtn = widget.CTkButton(self, text='', width=30, height=20, image=widget.CTkImage(dark_image=Image.open('lib\\copy.png'), size=(15, 15)))
+            self.cbtn = widget.CTkButton(self, text='', width=30, height=20, image=widget.CTkImage(dark_image=Image.open(resource_path('lib\\copy.png')), size=(15, 15)))
         if web_btn:
-            self.wbtn = widget.CTkButton(self, text='', width=30, height=20, image=widget.CTkImage(dark_image=Image.open('lib\\web.png'), size=(15, 15)))
+            self.wbtn = widget.CTkButton(self, text='', width=30, height=20, image=widget.CTkImage(dark_image=Image.open(resource_path('lib\\web.png')), size=(15, 15)))
 
         self.label.grid(column=0, row=0, padx=2, pady=4)
         self.content.grid(column=1, row=0, padx=2, pady=4)
@@ -218,7 +206,7 @@ class DTSToolBox(widget.CTk):
 
         self.roboto_bold = font.Font(family='Roboto', name='DTSLabelFont', size=10, weight='bold')
         self.roboto_normal = font.Font(family='Roboto', name='DTSContentFount', size=10, weight='normal')
-        self.iconbitmap(resource_path('.\lib\icon.ico'))
+        self.iconbitmap(resource_path('.\\lib\\icon.ico'))
         self.title("Toolbox")
 
         # add widgets to app
