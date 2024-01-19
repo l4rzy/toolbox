@@ -1,13 +1,16 @@
 import json, os
 import customtkinter as widget
-from tkinter import ttk
+from tkinter import ttk, font
 from lib.CTkScrollableDropdown import CTkScrollableDropdown
 from lib.config import Config
 from lib.analyzer import Analyzer
 from lib.worker import AbuseIPDB
 from lib.CTkListbox import CTkListbox
 from lib.tkdial import Meter
-from PIL import Image
+# from lib.CTkTable import CTkTable
+from pycountry import countries
+
+widget.set_default_color_theme('lib\\theme.json')
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -22,30 +25,53 @@ def resource_path(relative_path):
 class DTSListView(CTkListbox):
     pass
 
-class DTSLabelWithCopyBtn(widget.CTkFrame):
-    def __init__(self, master, max_width=50, **kwargs):
+class DTSLabelWithBtn(widget.CTkFrame):
+    def __init__(self, master, web_btn=False, copy_btn=True, max_width=400, **kwargs):
         super().__init__(master, **kwargs)
-        self.label = ttk.Label(self)
-        self.content = ttk.Label(self)
-        self.btn = widget.CTkButton(self, text='', width=30, height=20, image=widget.CTkImage(dark_image=Image.open('lib\\copy.png'), size=(15, 15)))
+        self.label = ttk.Label(self, border=2, font='DTSLabelFont', background='#292929', foreground='gray95')
+        self.content = ttk.Label(self, wraplength=max_width, font='DTSContentFont', background='#292929', foreground='gray95')
+        self.cbtn = None
+        self.wbtn = None
+        from PIL import Image
+        if copy_btn:
+            self.cbtn = widget.CTkButton(self, text='', width=30, height=20, image=widget.CTkImage(dark_image=Image.open('lib\\copy.png'), size=(15, 15)))
+        if web_btn:
+            self.wbtn = widget.CTkButton(self, text='', width=30, height=20, image=widget.CTkImage(dark_image=Image.open('lib\\web.png'), size=(15, 15)))
 
         self.label.grid(column=0, row=0, padx=2, pady=4)
         self.content.grid(column=1, row=0, padx=2, pady=4)
+        self.currentCol = 2
 
-        self.btn.bind('<Button-1>', self.cb_on_btn_click)
+        if copy_btn:
+            self.cbtn.bind('<Button-1>', self.cb_on_copy_btn_click)
+        if web_btn:
+            self.wbtn.bind('<Button-1>', self.cb_on_web_btn_click)
 
-    def cb_on_btn_click(self, event):
+    def cb_on_copy_btn_click(self, event):
+        self.clipboard_clear()
         self.clipboard_append(self.content.cget('text'))
+
+    def cb_on_web_btn_click(self, event):
+        import webbrowser, urllib.parse
+        webbrowser.open_new_tab(urllib.parse.quote(f'https://www.google.com/search?q={self.content}'))
 
     def set(self, label, content):
         self.label.configure(text=f'{label}:')
         self.content.configure(text=content)
-        self.btn.grid(column=2, row=0, padx=4, pady=4)
+        if self.cbtn:
+            self.cbtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
+            self.currentCol +=1
+        if self.wbtn:
+            self.wbtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
+            self.currentCol +=1
 
     def clear(self):
         self.label.configure(text='')
         self.content.configure(text='')
-        self.btn.grid_remove()
+        if self.cbtn:
+            self.cbtn.grid_remove()
+        if self.wbtn:
+            self.wbtn.grid_remove()
 
 class DTSAbuseIPDBReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -54,42 +80,75 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.grid_columnconfigure(0,weight=1)
         self.grid_rowconfigure(0,weight=1)
 
-        self.label = widget.CTkLabel(self, justify='left')
-        self.result = widget.CTkLabel(self, justify='left')
-        self.rateMeter = Meter(self, radius=200, start=0, end=100, border_width=5, bg='#2b2b2b',
-               fg="#272729", text_color="white", start_angle=180, end_angle=-270, scale_color="black", axis_color="white",
+        self.label = widget.CTkLabel(self, justify='center', font=widget.CTkFont(size=18, weight='bold', underline=True))
+        self.result = widget.CTkLabel(self, justify='center')
+        self.rateMeter = Meter(self, radius=200, start=0, end=100, border_width=5, bg='#212121',
+               fg="gray35", text_color="white", start_angle=180, end_angle=-270, scale_color="black", axis_color="white",
                needle_color="white", state='static')
         self.rateMeter.set_mark(0, 24, 'green')
         self.rateMeter.set_mark(25, 50, 'yellow')
         self.rateMeter.set_mark(51, 75, 'orange')
         self.rateMeter.set_mark(76, 100, 'red')
 
-        self.isp = DTSLabelWithCopyBtn(self)
+        self.isp = DTSLabelWithBtn(self)
+        self.usageType = DTSLabelWithBtn(self)
+        self.country = DTSLabelWithBtn(self)
+        self.domain = DTSLabelWithBtn(self, web_btn=True)
+        # self.hostnames = CTkTable(self, column=2)
 
-
+    def populate(self, data):
         self.label.grid(row=0,column=0,padx=4, pady=2)
         self.rateMeter.grid(row=1, column=0, padx=10, pady=20)
         self.result.grid(row=2, column=0, padx=4, pady=2)
-        self.isp.grid(row=1, column=1)
-        #self.moreInfo.grid(row=0, column=1, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN")
+        self.isp.grid(row=3, column=0)
+        self.usageType.grid(row=4, column=0)
+        self.domain.grid(row=5, column=0)
+        self.country.grid(row=6, column=0)
 
-    def populate(self, data):
-        data = data['data']
+        try:
+            data = data['data']
+        except Exception:
+            errors = data['errors']
+            if errors:
+                self.label.configure(text=f'Some errors happened, check the console for more information!')
+                return
         isPublic = data['isPublic']
         ipAddress = data['ipAddress']
         abuseConfidenceScore = data['abuseConfidenceScore']
         totalReports = data['totalReports']
         isp = data['isp']
+        usageType = data['usageType']
+        countryCode = data['countryCode']
+        domain = data['domain']
 
+        self.label.configure(text=f'Result for {ipAddress}')
         if not isPublic:
             self.result.configure(text=f'This IP is a private IP')
             self.rateMeter.set(abuseConfidenceScore)
+            self.isp.grid_remove()
+            self.usageType.grid_remove()
+            self.country.grid_remove()
             return
 
-        self.label.configure(text=f'Result for {ipAddress}')
-        self.result.configure(text=f'This IP was reported {totalReports} times, confidence of abuse is {abuseConfidenceScore} %')
+        self.result.configure(text=f'This IP was reported {totalReports} time{"" if totalReports in [0,1] else "s"}, confidence of abuse is {abuseConfidenceScore} %')
         self.rateMeter.set(abuseConfidenceScore)
         self.isp.set("ISP", isp)
+        self.usageType.set("Usage type", usageType)
+        self.domain.set("Domain", domain)
+        if countryCode != 'null':
+            country = countries.get(alpha_2=countryCode)
+            self.country.set("Country", f'{country.flag} {country.name}')
+        '''
+        hostnames = data['hostnames']
+        values = [['#', 'Hostname']]
+        if hostnames != []:
+            for index, h in enumerate(hostnames):
+                values.append([index, h])
+            print(values)
+            self.hostnames.configure(values=values, rows=len(values))
+            self.hostnames.grid(padx=30, pady=4)
+        '''
+
 
 class DTSTabView(widget.CTkTabview):
     def __init__(self, master, **kwargs):
@@ -102,6 +161,8 @@ class DTSTabView(widget.CTkTabview):
 
         self.tab('AbuseIPDB').grid_columnconfigure(0,weight=1)
         self.tab('AbuseIPDB').grid_rowconfigure(0,weight=1)
+
+        self.tab('Auto').grid_columnconfigure(0,weight=1)
         
         self.textBoxAbuseIPDB = widget.CTkTextbox(self.tab('AbuseIPDB'))
         self.textBoxAbuseIPDB.insert("0.0", "Sorry I have nothing to show!\n"*100)
@@ -126,7 +187,7 @@ class DTSTabView(widget.CTkTabview):
 
             self.report = DTSAbuseIPDBReport(self.tab('Auto'))
             self.report.populate(data)
-            self.report.grid(row=0, column=0)
+            self.report.grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
 '''
         DATA = {
             "Data": [
@@ -151,18 +212,19 @@ class DTSTabView(widget.CTkTabview):
 class DTSToolBox(widget.CTk):
     def __init__(self):
         super().__init__()
-
         self.grid_columnconfigure(0,weight=1)
         self.grid_rowconfigure(0,weight=0)
         self.grid_rowconfigure(1,weight=10)
 
+        self.roboto_bold = font.Font(family='Roboto', name='DTSLabelFont', size=10, weight='bold')
+        self.roboto_normal = font.Font(family='Roboto', name='DTSContentFount', size=10, weight='normal')
         self.iconbitmap(resource_path('.\lib\icon.ico'))
         self.title("Toolbox")
 
         # add widgets to app
         self.topFrame = widget.CTkFrame(self, border_width=2)
-        self.searchBar = widget.CTkEntry(self.topFrame, height=40, width=458)
-        self.searchDropdown = CTkScrollableDropdown(self.searchBar, values=['Hello', 'World', 'To be', 'Updated'], 
+        self.searchBar = widget.CTkEntry(self.topFrame, height=40, width=458, font=widget.CTkFont(size=16))
+        self.searchDropdown = CTkScrollableDropdown(self.searchBar, values=['1.1.1.1', '170.238.160.191', '192.168.1.1', '2607:f8b0:4009:80a::200e'], 
                                                     command=self.cb_on_search_dropdown_click, autocomplete=False, button_height=30, double_click=True)
         self.button = widget.CTkButton(self.topFrame, text="Lookup")
         self.searchBar.grid(row=0, column=0, padx=5, pady=5, sticky="NEW")
@@ -201,6 +263,8 @@ class DTSToolBox(widget.CTk):
 
     def bind_events(self):
         self.bind('<FocusIn>', self.cb_on_focus)
+        self.bind('<Escape>', lambda e: self.iconify())
+        self.protocol("WM_DELETE_WINDOW", self.cb_on_close)
         self.bind('<Configure>', self.cb_on_drag)
         self.button.bind('<Button-1>', self.cb_on_entry_update)
         self.searchDropdown.bind('<FocusIn>', self.cb_on_dropdown_focus)
@@ -211,10 +275,14 @@ class DTSToolBox(widget.CTk):
         self.tabView.render_from_worker(source, data)
 
     # add events to app
+    def cb_on_close(self):
+        self.exit_gracefully()
+    
     def cb_on_search_dropdown_click(self, text):
         self.clear_search_bar()
         self.searchBar.insert(0, text)
         self.dropdownFocus = False
+        self.cb_on_entry_update()
         
     def cb_on_dropdown_focus(self, event):
         if event.widget == self.searchDropdown:
@@ -246,8 +314,11 @@ class DTSToolBox(widget.CTk):
         print('[i] focused on main window')
         self.analyzer.reset()
         self.searchBar.focus()
-        clipboard = self.clipboard_get().strip()
-        if clipboard == self.searchBar.get():
+        try:
+            clipboard = self.clipboard_get().strip()
+        except Exception:
+            clipboard = ''
+        if clipboard == self.searchBar.get() or clipboard == '':
             return
         self.analyzer.process(clipboard)
         if self.analyzer.insertable:
@@ -255,7 +326,7 @@ class DTSToolBox(widget.CTk):
             self.searchBar.insert(0, clipboard)
             self.cb_on_entry_update(event, clipboard)
         
-    def cb_on_entry_update(self, event, text=''):
+    def cb_on_entry_update(self, event=None, text=''):
         if text == '':
             text = self.searchBar.get()
             self.analyzer.process(text)
@@ -264,9 +335,11 @@ class DTSToolBox(widget.CTk):
             self.tabView.update_analyzer(self.analyzer)
             self.worker.query(self.analyzer.text)
 
-    def quit(self):
+    def exit_gracefully(self):
         # save configs
         self.config.persist()
+        print("[i] exiting gracefully ...")
+        self.destroy()
     
     def run(self):
         self.setup_geometry()
@@ -277,8 +350,7 @@ app = DTSToolBox()
 
 import signal, sys
 def sigint_handler(sig, frame):
-    print("[i] exiting gracefully ...")
-    app.quit()
+    app.exit_gracefully()
     sys.exit(-1)
 signal.signal(signal.SIGINT, sigint_handler)
 
