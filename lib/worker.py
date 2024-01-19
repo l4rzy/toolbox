@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from typing import *
 import time
 import json, threading
 import subprocess
@@ -30,23 +32,44 @@ class CmdWrapper:
         self.process.kill()
 
 class Curl(CmdWrapper):
-    def __init__(self, exe=resource_path('curl\\curl.exe'), callback = None):
+    def __init__(self, exe=resource_path('curl\\curl.exe'), callback = None, proxy=None):
         super().__init__(exe, callback)
+        self.proxy = proxy
 
     def query(self, url, headers = {}, cookies = {}):
         cmdline = [self.exe, url]
+
+        if self.proxy != None:
+            cmdline.append('--proxy')
+            cmdline.append(f'{self.proxy["url"]}')
 
         for header, value in headers.items():
             cmdline.append('-H')
             cmdline.append(f'{header}: {value}')
 
-        print(f'[+] running curl with cmdline: {cmdline}')
         t = threading.Thread(target=self.thread_fn, args=[cmdline, self.callback])
         t.start()
 
 class NetUser(CmdWrapper):
     def __init__(self, exe='net.exe', callback = None):
         super().__init__(exe, callback)
+
+class Base64Decoder:
+    def __init__(self):
+        pass
+
+    def query(s):
+        import base64
+        try:
+            result = base64.decode(s.decode('utf-8'))
+        except Exception:
+            return None
+        return result
+
+## todo: return with dataclass instead of json
+@dataclass
+class AbuseIPDBResponse:
+    error: Any
 
 class AbuseIPDB:
     def __init__(self, apiKey, ui):

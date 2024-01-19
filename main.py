@@ -5,8 +5,8 @@ from lib.CTkScrollableDropdown import CTkScrollableDropdown
 from lib.config import Config
 from lib.analyzer import Analyzer
 from lib.worker import AbuseIPDB
-from lib.CTkListbox import CTkListbox
 from lib.tkdial import Meter
+from lib.CTkListbox import CTkListbox
 # from lib.CTkTable import CTkTable
 from pycountry import countries
 from lib.util  import resource_path
@@ -60,6 +60,15 @@ class DTSLabelWithBtn(widget.CTkFrame):
             self.cbtn.grid_remove()
         if self.wbtn:
             self.wbtn.grid_remove()
+
+class DTSHistory(widget.CTkScrollableFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.list = CTkListbox(self)
+        self.list.grid(row=0, column=0, padx=4, pady=4, columnspan=1, rowspan=1, sticky="SWEN")
+
+    def append(self, target):
+        pass
 
 class DTSAbuseIPDBReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -141,20 +150,20 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
 class DTSTabView(widget.CTkTabview):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.tabNames = ["Auto", "AbuseIPDB", "History", "Log", "Preferences"]
+        self.tabNames = ["Auto", "Data", "History", "Log", "Preferences"]
         self.report = None
         
         for name in self.tabNames:
             self.add(name)
 
-        self.tab('AbuseIPDB').grid_columnconfigure(0,weight=1)
-        self.tab('AbuseIPDB').grid_rowconfigure(0,weight=1)
+        self.tab('Data').grid_columnconfigure(0,weight=1)
+        self.tab('Data').grid_rowconfigure(0,weight=1)
 
         self.tab('Auto').grid_columnconfigure(0,weight=1)
         
-        self.textBoxAbuseIPDB = widget.CTkTextbox(self.tab('AbuseIPDB'))
-        self.textBoxAbuseIPDB.insert("0.0", "Sorry I have nothing to show!\n"*100)
-        self.textBoxAbuseIPDB.grid(row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN")
+        self.textBoxData = widget.CTkTextbox(self.tab('Data'), font=widget.CTkFont(family='Consolas', size=14))
+        self.textBoxData.insert("0.0", "Sorry I have nothing to show!\n"*100)
+        self.textBoxData.grid(row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN")
 
         self.tab('Log').grid_columnconfigure(0,weight=1)
         self.tab('Log').grid_rowconfigure(0,weight=1)
@@ -163,6 +172,9 @@ class DTSTabView(widget.CTkTabview):
         self.textBoxLog.insert("0.0", "Sorry I have nothing to show!\n"*100)
         self.textBoxLog.grid(row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN")
 
+    def update_history(self, target):
+        pass
+
     def update_analyzer(self, analyzer: Analyzer):
         self.set('Auto')
 
@@ -170,8 +182,8 @@ class DTSTabView(widget.CTkTabview):
         if source == 'abuseipdb':
             if self.report != None:
                 self.report.destroy()
-            self.textBoxAbuseIPDB.delete("0.0", "end")
-            self.textBoxAbuseIPDB.insert("0.0", json.dumps(data, indent=2))
+            self.textBoxData.delete("0.0", "end")
+            self.textBoxData.insert("0.0", json.dumps(data, indent=2))
 
             self.report = DTSAbuseIPDBReport(self.tab('Auto'))
             self.report.populate(data)

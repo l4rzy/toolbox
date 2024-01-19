@@ -1,4 +1,4 @@
-class History:
+class HistoryHandler:
     def __init__(self, histFile='history.txt'):
         self.histFile = histFile
 
