@@ -1,15 +1,16 @@
-import json, os
+import uuid
 import customtkinter as widget
 from tkinter import ttk, font
 from lib.CTkScrollableDropdown import CTkScrollableDropdown
 from lib.config import Config
 from lib.analyzer import Analyzer
-from lib.worker import AbuseIPDB
+from lib.worker import DTSWorker
 from lib.tkdial import Meter
 from lib.CTkListbox import CTkListbox
 # from lib.CTkTable import CTkTable
 from pycountry import countries
 from lib.util  import resource_path
+from lib.structure import AbuseObject, VirusTotalObject
 
 widget.set_default_color_theme(resource_path('lib\\theme.json'))
 
@@ -70,6 +71,59 @@ class DTSHistory(widget.CTkScrollableFrame):
     def append(self, target):
         pass
 
+class DTSVirusTotalReport(widget.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        self.grid_columnconfigure(0,weight=1)
+        self.grid_rowconfigure(0,weight=1)
+
+        self.label = widget.CTkLabel(self, justify='center', font=widget.CTkFont(size=18, weight='bold'))
+        self.result = widget.CTkLabel(self, justify='center')
+        self.rateMeter = Meter(self, radius=200, start=0, end=100, border_width=5, bg='#212121',
+               fg="gray35", text_color="white", start_angle=180, end_angle=-270, scale_color="black", axis_color="white",
+               needle_color="white", state='static', scroll=False)
+        self.rateMeter.set_mark(0, 24, 'green')
+        self.rateMeter.set_mark(25, 50, 'yellow')
+        self.rateMeter.set_mark(51, 75, 'orange')
+        self.rateMeter.set_mark(76, 100, 'red')
+
+        self.knownNames = DTSLabelWithBtn(self, web_btn=False, copy_btn=False)
+        self.magicInfo = DTSLabelWithBtn(self, web_btn=False, copy_btn=False)
+
+    def render_exception(self, message):
+        self.label.configure(text=f'VirusTotal Report')
+        self.rateMeter.set(0)
+        self.result.configure(message)
+        self.knownNames.grid_remove()
+        self.magicInfo.grid_remove()
+
+    def populate(self, data: VirusTotalObject):
+        self.label.grid(row=0,column=0,padx=4, pady=2)
+        self.rateMeter.grid(row=1, column=0, padx=10, pady=20)
+        self.result.grid(row=2, column=0, padx=4, pady=2)
+        self.knownNames.grid(row=3, column=0, padx=4, pady=2)
+        self.magicInfo.grid(row=4, column=0, padx=4, pady=2)
+        
+        self.label.configure(text=f'VirusTotal Report')
+        try:
+            firstResult = data.data[0].attributes
+        except IndexError:
+            # no results
+            self.rateMeter.set(0)
+            self.result.configure(text=f'The file was not found by VirusTotal')
+            self.knownNames.grid_remove()
+            self.magicInfo.grid_remove()
+            return
+
+        magic = firstResult.magic
+        names = firstResult.names
+        lastAnalysis = firstResult.last_analysis_stats
+        self.rateMeter.set(lastAnalysis.malicious*100/(lastAnalysis.malicious + lastAnalysis.undetected))
+        self.result.configure(text=f'The file was marked by {lastAnalysis.malicious}/{lastAnalysis.malicious + lastAnalysis.undetected} vendors as malicious')
+        self.knownNames.set("Known names", ', '.join(names[:3]))
+        self.magicInfo.set("Magic", magic)
+
 class DTSAbuseIPDBReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -77,11 +131,11 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.grid_columnconfigure(0,weight=1)
         self.grid_rowconfigure(0,weight=1)
 
-        self.label = widget.CTkLabel(self, justify='center', font=widget.CTkFont(size=18, weight='bold', underline=True))
+        self.label = widget.CTkLabel(self, justify='center', font=widget.CTkFont(size=18, weight='bold'))
         self.result = widget.CTkLabel(self, justify='center')
         self.rateMeter = Meter(self, radius=200, start=0, end=100, border_width=5, bg='#212121',
                fg="gray35", text_color="white", start_angle=180, end_angle=-270, scale_color="black", axis_color="white",
-               needle_color="white", state='static')
+               needle_color="white", state='static', scroll=False)
         self.rateMeter.set_mark(0, 24, 'green')
         self.rateMeter.set_mark(25, 50, 'yellow')
         self.rateMeter.set_mark(51, 75, 'orange')
@@ -93,7 +147,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.domain = DTSLabelWithBtn(self, web_btn=True)
         # self.hostnames = CTkTable(self, column=2)
 
-    def populate(self, data):
+    def populate(self, data: AbuseObject):
         self.label.grid(row=0,column=0,padx=4, pady=2)
         self.rateMeter.grid(row=1, column=0, padx=10, pady=20)
         self.result.grid(row=2, column=0, padx=4, pady=2)
@@ -101,41 +155,43 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.usageType.grid(row=4, column=0)
         self.domain.grid(row=5, column=0)
         self.country.grid(row=6, column=0)
-
-        try:
-            data = data['data']
-        except Exception:
-            errors = data['errors']
-            if errors:
-                self.label.configure(text=f'Some errors happened, check the console for more information!')
-                return
-        isPublic = data['isPublic']
-        ipAddress = data['ipAddress']
-        abuseConfidenceScore = data['abuseConfidenceScore']
-        totalReports = data['totalReports']
-        isp = data['isp']
-        usageType = data['usageType']
-        countryCode = data['countryCode']
-        domain = data['domain']
-
-        self.label.configure(text=f'Result for {ipAddress}')
-        if not isPublic:
+        '''
+                try:
+                    data = data['data']
+                except Exception:
+                    errors = data['errors']
+                    if errors:
+                        self.label.configure(text=f'An error happened, check the console for more information!')
+                        return
+                isPublic = data['isPublic']
+                ipAddress = data['ipAddress']
+                abuseConfidenceScore = data['abuseConfidenceScore']
+                totalReports = data['totalReports']
+                isp = data['isp']
+                usageType = data['usageType']
+                countryCode = data['countryCode']
+                domain = data['domain']
+        '''
+        self.label.configure(text=f'Result for {data.data.ip_address}')
+        if not data.data.is_public:
             self.result.configure(text=f'This IP is a private IP')
-            self.rateMeter.set(abuseConfidenceScore)
+            self.rateMeter.set(data.data.abuse_confidence_score)
+            self.domain.grid_remove()
             self.isp.grid_remove()
             self.usageType.grid_remove()
             self.country.grid_remove()
+            # self.hostnames.grid_remove()
             return
 
-        self.result.configure(text=f'This IP was reported {totalReports} time{"" if totalReports in [0,1] else "s"}, confidence of abuse is {abuseConfidenceScore} %')
-        self.rateMeter.set(abuseConfidenceScore)
-        self.isp.set("ISP", isp)
-        self.usageType.set("Usage type", usageType)
-        self.domain.set("Domain", domain)
-        if countryCode != 'null':
-            country = countries.get(alpha_2=countryCode)
+        self.result.configure(text=f'This IP was reported {data.data.total_reports} time{"" if data.data.total_reports in [0,1] else "s"}, confidence of abuse is {data.data.abuse_confidence_score}%')
+        self.rateMeter.set(data.data.abuse_confidence_score)
+        self.isp.set("ISP", data.data.isp)
+        self.usageType.set("Usage type", data.data.usage_type)
+        self.domain.set("Domain", data.data.domain)
+        if data.data.country_code != 'null':
+            country = countries.get(alpha_2=data.data.country_code)
             self.country.set("Country", f'{country.flag} {country.name}')
-        '''
+'''
         hostnames = data['hostnames']
         values = [['#', 'Hostname']]
         if hostnames != []:
@@ -144,7 +200,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             print(values)
             self.hostnames.configure(values=values, rows=len(values))
             self.hostnames.grid(padx=30, pady=4)
-        '''
+'''
 
 
 class DTSTabView(widget.CTkTabview):
@@ -183,12 +239,22 @@ class DTSTabView(widget.CTkTabview):
             if self.report != None:
                 self.report.destroy()
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", json.dumps(data, indent=2))
+            self.textBoxData.insert("0.0", data.to_dict())
 
             self.report = DTSAbuseIPDBReport(self.tab('Auto'))
             self.report.populate(data)
             self.report.grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
-'''
+
+        if source == 'virustotal':
+            if self.report != None:
+                self.report.destroy()
+            self.textBoxData.delete("0.0", "end")
+            self.textBoxData.insert("0.0", data.to_dict())
+
+            self.report = DTSVirusTotalReport(self.tab('Auto'))
+            self.report.populate(data)
+            self.report.grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+'''     
         DATA = {
             "Data": [
                 {"Name": "Tom", "Rollno": 1, "Marks": 50},
@@ -239,10 +305,10 @@ class DTSToolBox(widget.CTk):
         self.config = Config()
         # analyzer
         self.analyzer = Analyzer()
-        self.worker = AbuseIPDB(self.config.get('api', 'abuseipdb'), self)
-
+        self.worker = DTSWorker(self.config, self)
         ## internal states
         self.dropdownFocus = False
+        self.expectingDataId = None
 
     def clear_search_bar(self):
         self.searchBar.delete(0, len(self.searchBar.get()))
@@ -269,10 +335,13 @@ class DTSToolBox(widget.CTk):
         self.button.bind('<Button-1>', self.cb_on_entry_update)
         self.searchDropdown.bind('<FocusIn>', self.cb_on_dropdown_focus)
 
-    def render(self, source, data):
-        print(f'[+] received data from {source}')
-        print(json.dumps(data, indent=2))
-        self.tabView.render_from_worker(source, data)
+    def render(self, source, box):
+        print(f'[+] UI has received data from {source}')
+        (id, data) = box
+        if id == self.expectingDataId:
+            self.tabView.render_from_worker(source, data)
+        else:
+            print(f'[+] UI has dropped the data')
 
     # add events to app
     def cb_on_close(self):
@@ -308,7 +377,7 @@ class DTSToolBox(widget.CTk):
         self.drag_id = '' 
 
     def cb_on_focus(self, event):
-        print(self.dropdownFocus)
+        print(f'self.dropdownFocus: {self.dropdownFocus} | focus event: {event.widget}')
         if event.widget != self or self.dropdownFocus or self.config.get('ui', 'analyze_on_focus') == '0':
             return
         print('[i] focused on main window')
@@ -332,8 +401,14 @@ class DTSToolBox(widget.CTk):
             self.analyzer.process(text)
 
         if self.analyzer.is_ip():
+            self.expectingDataId = uuid.uuid4().hex
             self.tabView.update_analyzer(self.analyzer)
-            self.worker.query(self.analyzer.text)
+            self.worker.run(self.expectingDataId, ['abuseipdb'], self.analyzer.text)
+
+        if self.analyzer.is_hash():
+            self.expectingDataId = uuid.uuid4()
+            self.tabView.update_analyzer(self.analyzer)
+            self.worker.run(self.expectingDataId, ['virustotal'], self.analyzer.text)
 
     def exit_gracefully(self):
         # save configs
