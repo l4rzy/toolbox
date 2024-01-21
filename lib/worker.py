@@ -134,7 +134,7 @@ class AbuseIPDB:
             # parse response, since result is json
             if code == 200 and body != '':
                 data = simdjson.loads(body)
-                abuseObject = AbuseObject.from_dict(data)
+                abuseObject = AbuseObject(**data)
                 ui.render(source='abuseipdb', box=(id, abuseObject))
 
         self.apiKey = apiKey
@@ -157,7 +157,7 @@ class VirusTotal:
             # parse response, since result is json
             if code == 200 and body != '':
                 data = simdjson.loads(body)
-                virusTotalObject = VirusTotalObject.from_dict(data)
+                virusTotalObject = VirusTotalObject(**data)
                 ui.render(source='virustotal', box=(id, virusTotalObject))
         
         self.ui = ui # a ref to UI object

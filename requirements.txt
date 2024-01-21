@@ -1,0 +1,8 @@
+certifi==2023.11.17
+colour==0.1.5
+customtkinter==5.2.2
+iso3166==2.1.1
+Pillow==10.2.0
+pycurl==7.45.1
+pydantic==2.5.3
+pysimdjson==5.0.2

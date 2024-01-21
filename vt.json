@@ -1,0 +1,893 @@
+{
+    "data": [
+        {
+            "attributes": {
+                "type_description": "ZIP",
+                "tlsh": "T1EA5833ABCD7DB32BFE30D5351307470D7E9B829E7625184619140694AD2F0EB1A2FB8E",
+                "vhash": "3207ec4f41d2871a06c359acb6fa4aa0",
+                "type_tags": [
+                    "compressed",
+                    "zip"
+                ],
+                "names": [
+                    "Cutter-v2.3.2-Windows-x86_64.zip",
+                    "Cutter Reverse Eng Platform-v2.3.2-Windows-x86_64.zip"
+                ],
+                "last_modification_date": 1705608081,
+                "type_tag": "zip",
+                "times_submitted": 53,
+                "total_votes": {
+                    "harmless": 0,
+                    "malicious": 0
+                },
+                "size": 128768291,
+                "type_extension": "zip",
+                "last_submission_date": 1705598192,
+                "sigma_analysis_results": [
+                    {
+                        "rule_title": "Password Protected Compressed File Extraction Via 7Zip",
+                        "rule_source": "Sigma Integrated Rule Set (GitHub)",
+                        "match_context": [
+                            {
+                                "values": {
+                                    "TerminalSessionId": "1",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "ProcessId": "6700",
+                                    "Product": "7-Zip",
+                                    "Description": "7-Zip Console",
+                                    "Company": "Igor Pavlov",
+                                    "ParentProcessGuid": "{C784477D-E0ED-6505-4106-000000001F00}",
+                                    "User": "DESKTOP-B0T93D6\\george",
+                                    "Hashes": "MD5=77E556CDFDC5C592F5C46DB4127C6F4C,SHA256=034ECA579F68B44F8F41294D8C9DAC96F032C57DEE0877095DA47913060DFF84,IMPHASH=6D26C857784EEA32AC92DCB74E598644",
+                                    "OriginalFileName": "7z.exe",
+                                    "ParentImage": "C:\\Windows\\SysWOW64\\unarchiver.exe",
+                                    "FileVersion": "18.05",
+                                    "ParentProcessId": "6876",
+                                    "CurrentDirectory": "C:\\Users\\george\\Desktop\\",
+                                    "CommandLine": "\"C:\\Windows\\System32\\7za.exe\" x -pinfected -y -o\"C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\" \"C:\\Users\\george\\Desktop\\Cutter-v2.3.2-Windows-x86_64.zip\"",
+                                    "EventID": "1",
+                                    "LogonGuid": "C784477D-8CD6-6442-56AD-030000000000",
+                                    "LogonId": "240982",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe",
+                                    "IntegrityLevel": "High",
+                                    "ParentCommandLine": "\"C:\\Windows\\SysWOW64\\unarchiver.exe\" \"C:\\Users\\george\\Desktop\\Cutter-v2.3.2-Windows-x86_64.zip\"",
+                                    "UtcTime": "1694884077",
+                                    "RuleName": "-"
+                                }
+                            }
+                        ],
+                        "rule_level": "medium",
+                        "rule_id": "22e867c244280c1d01bcddc8355c10d82b6c69577cd784cefbbe4eb5e7a82f65",
+                        "rule_author": "Nasreddine Bencherchali (Nextron Systems)",
+                        "rule_description": "Detects usage of 7zip utilities (7z.exe, 7za.exe and 7zr.exe) to extract password protected zip files."
+                    },
+                    {
+                        "rule_title": "Creation of an Executable by an Executable",
+                        "rule_source": "Sigma Integrated Rule Set (GitHub)",
+                        "match_context": [
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe",
+                                    "RuleName": "EXE",
+                                    "CreationUtcTime": "1694884077",
+                                    "UtcTime": "1694884077",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\cutter.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rizin.exe",
+                                    "RuleName": "EXE",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe",
+                                    "RuleName": "EXE",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rz-asm.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe",
+                                    "RuleName": "EXE",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rz-ax.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe",
+                                    "RuleName": "EXE",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rz-bin.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rz-diff.exe",
+                                    "RuleName": "EXE",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rz-find.exe",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "RuleName": "EXE",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rz-gg.exe",
+                                    "RuleName": "EXE",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rz-hash.exe",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "RuleName": "EXE",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\rz-run.exe",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "CreationUtcTime": "1694884113",
+                                    "UtcTime": "1694884113",
+                                    "RuleName": "EXE",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe"
+                                }
+                            },
+                            {
+                                "values": {
+                                    "EventID": "11",
+                                    "ProcessId": "6700",
+                                    "Image": "C:\\Windows\\SysWOW64\\7za.exe",
+                                    "RuleName": "EXE",
+                                    "CreationUtcTime": "1694884116",
+                                    "UtcTime": "1694884116",
+                                    "ProcessGuid": "{C784477D-E0ED-6505-4206-000000001F00}",
+                                    "TargetFilename": "C:\\Users\\george\\AppData\\Local\\Temp\\5lysrwuy.obi\\Cutter-v2.3.2-Windows-x86_64\\vc_redist.x64.exe"
+                                }
+                            }
+                        ],
+                        "rule_level": "low",
+                        "rule_id": "b5386a23355681c43cfbd2f2ccfe4b16ed45324d0d7b5583487a9f302ee1e427",
+                        "rule_author": "frack113",
+                        "rule_description": "Detects the creation of an executable by another executable"
+                    }
+                ],
+                "last_analysis_results": {
+                    "Bkav": {
+                        "category": "undetected",
+                        "engine_name": "Bkav",
+                        "engine_version": "2.0.0.1",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Lionic": {
+                        "category": "undetected",
+                        "engine_name": "Lionic",
+                        "engine_version": "7.5",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Elastic": {
+                        "category": "undetected",
+                        "engine_name": "Elastic",
+                        "engine_version": "4.0.125",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240115"
+                    },
+                    "DrWeb": {
+                        "category": "timeout",
+                        "engine_name": "DrWeb",
+                        "engine_version": "7.0.61.8090",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "MicroWorld-eScan": {
+                        "category": "undetected",
+                        "engine_name": "MicroWorld-eScan",
+                        "engine_version": "14.0.409.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "CMC": {
+                        "category": "undetected",
+                        "engine_name": "CMC",
+                        "engine_version": "2.4.2022.1",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240106"
+                    },
+                    "CAT-QuickHeal": {
+                        "category": "undetected",
+                        "engine_name": "CAT-QuickHeal",
+                        "engine_version": "22.00",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240117"
+                    },
+                    "Skyhigh": {
+                        "category": "undetected",
+                        "engine_name": "Skyhigh",
+                        "engine_version": "v2021.2.0+4045",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "ALYac": {
+                        "category": "undetected",
+                        "engine_name": "ALYac",
+                        "engine_version": "2.0.0.8",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Malwarebytes": {
+                        "category": "undetected",
+                        "engine_name": "Malwarebytes",
+                        "engine_version": "4.5.5.54",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "VIPRE": {
+                        "category": "timeout",
+                        "engine_name": "VIPRE",
+                        "engine_version": "6.0.0.35",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Sangfor": {
+                        "category": "undetected",
+                        "engine_name": "Sangfor",
+                        "engine_version": "2.23.0.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Trustlook": {
+                        "category": "undetected",
+                        "engine_name": "Trustlook",
+                        "engine_version": "1.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "BitDefender": {
+                        "category": "timeout",
+                        "engine_name": "BitDefender",
+                        "engine_version": "7.2",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "K7GW": {
+                        "category": "timeout",
+                        "engine_name": "K7GW",
+                        "engine_version": "12.136.50776",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "K7AntiVirus": {
+                        "category": "undetected",
+                        "engine_name": "K7AntiVirus",
+                        "engine_version": "12.136.50776",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Arcabit": {
+                        "category": "failure",
+                        "engine_name": "Arcabit",
+                        "engine_version": "2022.0.0.18",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Baidu": {
+                        "category": "undetected",
+                        "engine_name": "Baidu",
+                        "engine_version": "1.0.0.2",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20190318"
+                    },
+                    "VirIT": {
+                        "category": "undetected",
+                        "engine_name": "VirIT",
+                        "engine_version": "9.5.621",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "SymantecMobileInsight": {
+                        "category": "type-unsupported",
+                        "engine_name": "SymantecMobileInsight",
+                        "engine_version": "2.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240103"
+                    },
+                    "Symantec": {
+                        "category": "undetected",
+                        "engine_name": "Symantec",
+                        "engine_version": "1.21.0.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "tehtris": {
+                        "category": "type-unsupported",
+                        "engine_name": "tehtris",
+                        "engine_version": null,
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "ESET-NOD32": {
+                        "category": "undetected",
+                        "engine_name": "ESET-NOD32",
+                        "engine_version": "28591",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "APEX": {
+                        "category": "type-unsupported",
+                        "engine_name": "APEX",
+                        "engine_version": "6.490",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240116"
+                    },
+                    "TrendMicro-HouseCall": {
+                        "category": "undetected",
+                        "engine_name": "TrendMicro-HouseCall",
+                        "engine_version": "10.0.0.1040",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Avast": {
+                        "category": "undetected",
+                        "engine_name": "Avast",
+                        "engine_version": "23.9.8494.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "ClamAV": {
+                        "category": "undetected",
+                        "engine_name": "ClamAV",
+                        "engine_version": "1.2.1.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Kaspersky": {
+                        "category": "undetected",
+                        "engine_name": "Kaspersky",
+                        "engine_version": "22.0.1.28",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Alibaba": {
+                        "category": "undetected",
+                        "engine_name": "Alibaba",
+                        "engine_version": "0.3.0.5",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20190527"
+                    },
+                    "NANO-Antivirus": {
+                        "category": "undetected",
+                        "engine_name": "NANO-Antivirus",
+                        "engine_version": "1.0.146.25796",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "ViRobot": {
+                        "category": "undetected",
+                        "engine_name": "ViRobot",
+                        "engine_version": "2014.3.20.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Rising": {
+                        "category": "timeout",
+                        "engine_name": "Rising",
+                        "engine_version": "25.0.0.27",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Cynet": {
+                        "category": "type-unsupported",
+                        "engine_name": "Cynet",
+                        "engine_version": "4.0.0.28",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Emsisoft": {
+                        "category": "timeout",
+                        "engine_name": "Emsisoft",
+                        "engine_version": "2022.6.0.32461",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "F-Secure": {
+                        "category": "undetected",
+                        "engine_name": "F-Secure",
+                        "engine_version": "18.10.1547.307",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "BitDefenderTheta": {
+                        "category": "undetected",
+                        "engine_name": "BitDefenderTheta",
+                        "engine_version": "7.2.37796.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240103"
+                    },
+                    "Zillya": {
+                        "category": "undetected",
+                        "engine_name": "Zillya",
+                        "engine_version": "2.0.0.5036",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "TrendMicro": {
+                        "category": "undetected",
+                        "engine_name": "TrendMicro",
+                        "engine_version": "11.0.0.1006",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "SentinelOne": {
+                        "category": "type-unsupported",
+                        "engine_name": "SentinelOne",
+                        "engine_version": "23.4.2.3",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20231119"
+                    },
+                    "Sophos": {
+                        "category": "undetected",
+                        "engine_name": "Sophos",
+                        "engine_version": "2.4.3.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Paloalto": {
+                        "category": "type-unsupported",
+                        "engine_name": "Paloalto",
+                        "engine_version": "0.9.0.1003",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "GData": {
+                        "category": "timeout",
+                        "engine_name": "GData",
+                        "engine_version": null,
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Jiangmin": {
+                        "category": "undetected",
+                        "engine_name": "Jiangmin",
+                        "engine_version": "16.0.100",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Webroot": {
+                        "category": "type-unsupported",
+                        "engine_name": "Webroot",
+                        "engine_version": "1.0.0.403",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Google": {
+                        "category": "timeout",
+                        "engine_name": "Google",
+                        "engine_version": null,
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Avira": {
+                        "category": "undetected",
+                        "engine_name": "Avira",
+                        "engine_version": "8.3.3.16",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Antiy-AVL": {
+                        "category": "undetected",
+                        "engine_name": "Antiy-AVL",
+                        "engine_version": "3.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Kingsoft": {
+                        "category": "undetected",
+                        "engine_name": "Kingsoft",
+                        "engine_version": "None",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20230906"
+                    },
+                    "Gridinsoft": {
+                        "category": "undetected",
+                        "engine_name": "Gridinsoft",
+                        "engine_version": "1.0.155.174",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Xcitium": {
+                        "category": "timeout",
+                        "engine_name": "Xcitium",
+                        "engine_version": null,
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Microsoft": {
+                        "category": "timeout",
+                        "engine_name": "Microsoft",
+                        "engine_version": "1.1.23110.2",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "SUPERAntiSpyware": {
+                        "category": "undetected",
+                        "engine_name": "SUPERAntiSpyware",
+                        "engine_version": "5.6.0.1032",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "ZoneAlarm": {
+                        "category": "undetected",
+                        "engine_name": "ZoneAlarm",
+                        "engine_version": "1.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Avast-Mobile": {
+                        "category": "undetected",
+                        "engine_name": "Avast-Mobile",
+                        "engine_version": "240118-00",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Varist": {
+                        "category": "undetected",
+                        "engine_name": "Varist",
+                        "engine_version": "6.5.1.2",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "BitDefenderFalx": {
+                        "category": "type-unsupported",
+                        "engine_name": "BitDefenderFalx",
+                        "engine_version": "2.0.936",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240108"
+                    },
+                    "AhnLab-V3": {
+                        "category": "undetected",
+                        "engine_name": "AhnLab-V3",
+                        "engine_version": "3.25.0.10459",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Acronis": {
+                        "category": "undetected",
+                        "engine_name": "Acronis",
+                        "engine_version": "1.2.0.121",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20230828"
+                    },
+                    "McAfee": {
+                        "category": "undetected",
+                        "engine_name": "McAfee",
+                        "engine_version": "6.0.6.653",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "TACHYON": {
+                        "category": "undetected",
+                        "engine_name": "TACHYON",
+                        "engine_version": "2024-01-18.02",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "DeepInstinct": {
+                        "category": "type-unsupported",
+                        "engine_name": "DeepInstinct",
+                        "engine_version": "5.0.0.8",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240116"
+                    },
+                    "VBA32": {
+                        "category": "undetected",
+                        "engine_name": "VBA32",
+                        "engine_version": "5.0.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Cylance": {
+                        "category": "type-unsupported",
+                        "engine_name": "Cylance",
+                        "engine_version": "2.0.0.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240103"
+                    },
+                    "Zoner": {
+                        "category": "undetected",
+                        "engine_name": "Zoner",
+                        "engine_version": "2.2.2.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Tencent": {
+                        "category": "undetected",
+                        "engine_name": "Tencent",
+                        "engine_version": "1.0.0.1",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Yandex": {
+                        "category": "undetected",
+                        "engine_name": "Yandex",
+                        "engine_version": "5.5.2.24",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Ikarus": {
+                        "category": "undetected",
+                        "engine_name": "Ikarus",
+                        "engine_version": "6.2.4.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "MaxSecure": {
+                        "category": "undetected",
+                        "engine_name": "MaxSecure",
+                        "engine_version": "1.0.0.1",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Fortinet": {
+                        "category": "undetected",
+                        "engine_name": "Fortinet",
+                        "engine_version": "None",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "AVG": {
+                        "category": "undetected",
+                        "engine_name": "AVG",
+                        "engine_version": "23.9.8494.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "Cybereason": {
+                        "category": "type-unsupported",
+                        "engine_name": "Cybereason",
+                        "engine_version": "1.2.449",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20231102"
+                    },
+                    "Panda": {
+                        "category": "undetected",
+                        "engine_name": "Panda",
+                        "engine_version": "4.6.4.2",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": "20240118"
+                    },
+                    "CrowdStrike": {
+                        "category": "type-unsupported",
+                        "engine_name": "CrowdStrike",
+                        "engine_version": "1.0",
+                        "result": null,
+                        "method": "blacklist",
+                        "engine_update": null
+                    }
+                },
+                "trid": [
+                    {
+                        "file_type": "ZIP compressed archive",
+                        "probability": 80.0
+                    },
+                    {
+                        "file_type": "PrintFox/Pagefox bitmap (640x800)",
+                        "probability": 20.0
+                    }
+                ],
+                "sigma_analysis_summary": {
+                    "Sigma Integrated Rule Set (GitHub)": {
+                        "high": 0,
+                        "medium": 1,
+                        "critical": 0,
+                        "low": 1
+                    }
+                },
+                "sandbox_verdicts": {
+                    "Zenbox Linux": {
+                        "category": "harmless",
+                        "confidence": 99,
+                        "sandbox_name": "Zenbox Linux",
+                        "malware_classification": [
+                            "CLEAN"
+                        ]
+                    }
+                },
+                "sha256": "e53a137809a610f939ce13744640f0da67369e87fdb1b2545be3e417c7781c8e",
+                "tags": [
+                    "sets-process-name",
+                    "zip",
+                    "detect-debug-environment",
+                    "long-sleeps",
+                    "checks-user-input",
+                    "contains-pe"
+                ],
+                "last_analysis_date": 1705598199,
+                "unique_sources": 51,
+                "first_submission_date": 1694857584,
+                "ssdeep": "3145728:xAMhU2fi3iqvrpcZYV8fIj4AWR1a5Czcw2vqiDPoLMkoek3:xhhjfidvV8O4T1a5CgwoqiDPxMe",
+                "bundle_info": {
+                    "highest_datetime": "2023-09-14 07:50:56",
+                    "lowest_datetime": "2020-08-17 18:58:44",
+                    "num_children": 1450,
+                    "extensions": {
+                        "exe": 10,
+                        "lib": 29,
+                        "zip": 1,
+                        "h": 332,
+                        "py": 21,
+                        "dll": 59,
+                        "pc": 28,
+                        "sdb": 16,
+                        "pyc": 12,
+                        "pyd": 22,
+                        "sla": 126
+                    },
+                    "file_types": {
+                        "directory": 86,
+                        "unknown": 613,
+                        "Portable Executable": 91,
+                        "ZIP": 1,
+                        "XML": 209
+                    },
+                    "type": "ZIP",
+                    "uncompressed_size": 546588574
+                },
+                "md5": "74d0956b39d585bde4595545a5208603",
+                "sha1": "70011d3ce48fc2a4faaed875e88cf5c3332f54fb",
+                "magic": "Zip archive data, at least v2.0 to extract, compression method=deflate",
+                "last_analysis_stats": {
+                    "harmless": 0,
+                    "type-unsupported": 12,
+                    "suspicious": 0,
+                    "confirmed-timeout": 0,
+                    "timeout": 10,
+                    "failure": 1,
+                    "malicious": 0,
+                    "undetected": 50
+                },
+                "meaningful_name": "Cutter-v2.3.2-Windows-x86_64.zip",
+                "reputation": 0,
+                "sigma_analysis_stats": {
+                    "high": 0,
+                    "medium": 1,
+                    "critical": 0,
+                    "low": 1
+                }
+            },
+            "type": "file",
+            "id": "e53a137809a610f939ce13744640f0da67369e87fdb1b2545be3e417c7781c8e",
+            "links": {
+                "self": "https://www.virustotal.com/api/v3/files/e53a137809a610f939ce13744640f0da67369e87fdb1b2545be3e417c7781c8e"
+            }
+        }
+    ],
+    "links": {
+        "self": "https://www.virustotal.com/api/v3/search?query=E53A137809A610F939CE13744640F0DA67369E87FDB1B2545BE3E417C7781C8E"
+    }
+}

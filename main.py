@@ -8,7 +8,7 @@ from lib.worker import DTSWorker
 from lib.tkdial import Meter
 from lib.CTkListbox import CTkListbox
 # from lib.CTkTable import CTkTable
-from pycountry import countries
+from iso3166 import countries
 from lib.util  import resource_path
 from lib.structure import AbuseObject, VirusTotalObject
 
@@ -155,27 +155,11 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.usageType.grid(row=4, column=0)
         self.domain.grid(row=5, column=0)
         self.country.grid(row=6, column=0)
-        '''
-                try:
-                    data = data['data']
-                except Exception:
-                    errors = data['errors']
-                    if errors:
-                        self.label.configure(text=f'An error happened, check the console for more information!')
-                        return
-                isPublic = data['isPublic']
-                ipAddress = data['ipAddress']
-                abuseConfidenceScore = data['abuseConfidenceScore']
-                totalReports = data['totalReports']
-                isp = data['isp']
-                usageType = data['usageType']
-                countryCode = data['countryCode']
-                domain = data['domain']
-        '''
-        self.label.configure(text=f'Result for {data.data.ip_address}')
-        if not data.data.is_public:
+
+        self.label.configure(text=f'Result for {data.data.ipAddress}')
+        if not data.data.isPublic:
             self.result.configure(text=f'This IP is a private IP')
-            self.rateMeter.set(data.data.abuse_confidence_score)
+            self.rateMeter.set(data.data.abuseConfidenceScore)
             self.domain.grid_remove()
             self.isp.grid_remove()
             self.usageType.grid_remove()
@@ -183,14 +167,14 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             # self.hostnames.grid_remove()
             return
 
-        self.result.configure(text=f'This IP was reported {data.data.total_reports} time{"" if data.data.total_reports in [0,1] else "s"}, confidence of abuse is {data.data.abuse_confidence_score}%')
-        self.rateMeter.set(data.data.abuse_confidence_score)
+        self.result.configure(text=f'This IP was reported {data.data.totalReports} time{"" if data.data.totalReports in [0,1] else "s"}, confidence of abuse is {data.data.abuseConfidenceScore}%')
+        self.rateMeter.set(data.data.abuseConfidenceScore)
         self.isp.set("ISP", data.data.isp)
-        self.usageType.set("Usage type", data.data.usage_type)
+        self.usageType.set("Usage type", data.data.usageType)
         self.domain.set("Domain", data.data.domain)
-        if data.data.country_code != 'null':
-            country = countries.get(alpha_2=data.data.country_code)
-            self.country.set("Country", f'{country.flag} {country.name}')
+        if data.data.countryCode != 'null':
+            country = countries.get(data.data.countryCode)
+            self.country.set("Country", f'{country.name}')
 '''
         hostnames = data['hostnames']
         values = [['#', 'Hostname']]
@@ -239,7 +223,7 @@ class DTSTabView(widget.CTkTabview):
             if self.report != None:
                 self.report.destroy()
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", data.to_dict())
+            self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
 
             self.report = DTSAbuseIPDBReport(self.tab('Auto'))
             self.report.populate(data)
@@ -249,7 +233,7 @@ class DTSTabView(widget.CTkTabview):
             if self.report != None:
                 self.report.destroy()
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", data.to_dict())
+            self.textBoxData.insert("0.0", data.model_dump())
 
             self.report = DTSVirusTotalReport(self.tab('Auto'))
             self.report.populate(data)
@@ -290,8 +274,8 @@ class DTSToolBox(widget.CTk):
         # add widgets to app
         self.topFrame = widget.CTkFrame(self, border_width=2)
         self.searchBar = widget.CTkEntry(self.topFrame, height=40, width=458, font=widget.CTkFont(size=16))
-        self.searchDropdown = CTkScrollableDropdown(self.searchBar, values=['1.1.1.1', '170.238.160.191', '192.168.1.1', '2607:f8b0:4009:80a::200e'], 
-                                                    command=self.cb_on_search_dropdown_click, autocomplete=False, button_height=30, double_click=True)
+        #self.searchDropdown = CTkScrollableDropdown(self.searchBar, values=['1.1.1.1', '170.238.160.191', '192.168.1.1', '2607:f8b0:4009:80a::200e'], 
+        #                                            command=self.cb_on_search_dropdown_click, autocomplete=False, button_height=30, double_click=True, )
         self.button = widget.CTkButton(self.topFrame, text="Lookup")
         self.searchBar.grid(row=0, column=0, padx=5, pady=5, sticky="NEW")
         self.button.grid(row=0, column=1, padx=10, pady=10, sticky="ENS")
@@ -307,8 +291,7 @@ class DTSToolBox(widget.CTk):
         self.analyzer = Analyzer()
         self.worker = DTSWorker(self.config, self)
         ## internal states
-        self.dropdownFocus = False
-        self.expectingDataId = None
+        self.expectingDataId: str = ''
 
     def clear_search_bar(self):
         self.searchBar.delete(0, len(self.searchBar.get()))
@@ -333,12 +316,14 @@ class DTSToolBox(widget.CTk):
         self.protocol("WM_DELETE_WINDOW", self.cb_on_close)
         self.bind('<Configure>', self.cb_on_drag)
         self.button.bind('<Button-1>', self.cb_on_entry_update)
-        self.searchDropdown.bind('<FocusIn>', self.cb_on_dropdown_focus)
+        # self.searchDropdown.bind('<FocusIn>', self.cb_on_dropdown_focus)
 
     def render(self, source, box):
         print(f'[+] UI has received data from {source}')
         (id, data) = box
         if id == self.expectingDataId:
+            if self.analyzer.insertable:
+                self.searchBar.insert(0, self.analyzer.text)
             self.tabView.render_from_worker(source, data)
         else:
             print(f'[+] UI has dropped the data')
@@ -360,8 +345,8 @@ class DTSToolBox(widget.CTk):
 
     def cb_on_drag(self, event):
         if event.widget is self:  # do nothing if the event is triggered by one of root's children
-            if self.searchDropdown.winfo_viewable():
-                self.searchDropdown.withdraw()
+            #if self.searchDropdown.winfo_viewable():
+            #    self.searchDropdown.withdraw()
             if self.drag_id == '':
                 # action on drag start
                 pass
@@ -377,8 +362,7 @@ class DTSToolBox(widget.CTk):
         self.drag_id = '' 
 
     def cb_on_focus(self, event):
-        print(f'self.dropdownFocus: {self.dropdownFocus} | focus event: {event.widget}')
-        if event.widget != self or self.dropdownFocus or self.config.get('ui', 'analyze_on_focus') == '0':
+        if event.widget != self or self.config.get('ui', 'analyze_on_focus') == '0':
             return
         print('[i] focused on main window')
         self.analyzer.reset()
@@ -388,11 +372,12 @@ class DTSToolBox(widget.CTk):
         except Exception:
             clipboard = ''
         if clipboard == self.searchBar.get() or clipboard == '':
+            print('[i] nothing or nothing new to analyze')
             return
         self.analyzer.process(clipboard)
         if self.analyzer.insertable:
             self.clear_search_bar()
-            self.searchBar.insert(0, clipboard)
+            # self.searchBar.insert(0, clipboard)
             self.cb_on_entry_update(event, clipboard)
         
     def cb_on_entry_update(self, event=None, text=''):
@@ -415,6 +400,7 @@ class DTSToolBox(widget.CTk):
         self.config.persist()
         print("[i] exiting gracefully ...")
         self.destroy()
+        print('hel;lo')
     
     def run(self):
         self.setup_geometry()
