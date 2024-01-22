@@ -154,9 +154,9 @@ class Base64Decoder:
         import base64
 
         try:
-            result = base64.b64decode(s.encode('utf-8'))
+            result = base64.b64decode(s.encode("utf-8"))
         except Exception as e:
-            print(f'[base64decoder] encounter error: {e}')
+            print(f"[base64decoder] encounter error: {e}")
             return
         self.ui.render(source="base64", box=(id, result))
 
@@ -173,7 +173,8 @@ class AbuseIPDB:
 
         self.apiKey = apiKey
         self.ui = ui  # a ref to UI object
-        self.curl = LibCurl(callback=callback)
+        self.useProxy: None | str = self.ui.config.get_proxy_string()
+        self.curl = LibCurl(callback=callback, proxy=self.useProxy)
         self.running = False
 
     def query(self, id, text, maxAge=90):
@@ -197,7 +198,8 @@ class VirusTotal:
 
         self.ui = ui  # a ref to UI object
         self.apiKey = apiKey
-        self.curl = LibCurl(callback=callback)
+        self.useProxy: None | str = self.ui.config.get_proxy_string()
+        self.curl = LibCurl(callback=callback, proxy=self.useProxy)
 
     def query(self, id, hash, options={}):
         headers = {"x-apikey": f"{self.apiKey}"}

@@ -120,6 +120,7 @@ class DTSHistory(widget.CTkScrollableFrame):
 class DTSGenericReport(widget.CTkFrame):
     pass
 
+
 class DTSVirusTotalReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -277,6 +278,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             self.hostnames.grid(padx=30, pady=4)
 """
 
+
 class DTSBase64Report(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master)
@@ -287,38 +289,43 @@ class DTSBase64Report(widget.CTkFrame):
         from PIL import Image
 
         self.copyBtn = widget.CTkButton(
-                self,
-                text="Copy",
-                width=30,
-                height=20,
-                image=widget.CTkImage(
-                    dark_image=Image.open(resource_path("lib\\copy.png")), size=(15, 15)
-                ),
-            )
-        self.textContent = widget.CTkTextbox(self, font=widget.CTkFont(family="Consolas", size=14))
+            self,
+            text="Copy",
+            width=30,
+            height=20,
+            image=widget.CTkImage(
+                dark_image=Image.open(resource_path("lib\\copy.png")), size=(15, 15)
+            ),
+        )
+        self.textContent = widget.CTkTextbox(
+            self, font=widget.CTkFont(family="Consolas", size=14)
+        )
 
-        self.copyBtn.bind('<Button-1>', command=self.cb_on_copy)
+        self.copyBtn.bind("<Button-1>", command=self.cb_on_copy)
 
     def cb_on_copy(self, event):
         self.clipboard_clear()
         self.clipboard_append(self.textContent.get("0.0", "end"))
-        print('[base64report] decoded content copied')
+        print("[base64report] decoded content copied")
 
     def populate(self, result: str):
         self.copyBtn.grid(row=0, column=0, padx=20, pady=10)
-        self.textContent.grid(row=1, column=0, padx=5, pady=10, columnspan=1, rowspan=1, sticky="SWEN")
+        self.textContent.grid(
+            row=1, column=0, padx=5, pady=10, columnspan=1, rowspan=1, sticky="SWEN"
+        )
         self.clear()
         self.textContent.insert("0.0", result)
 
     def clear(self):
         self.textContent.delete("0.0", "end")
 
+
 class DTSTabView(widget.CTkTabview):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.tabNames = ["Auto", "Data", "History", "Log", "Preferences"]
         self.reports = {}
-        self.reportShowing = ''
+        self.reportShowing = ""
 
         for name in self.tabNames:
             self.add(name)
@@ -353,7 +360,9 @@ class DTSTabView(widget.CTkTabview):
             if r != except_for:
                 self.reports[r].grid_remove()
 
-        self.reports[except_for].grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+        self.reports[except_for].grid(
+            row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
+        )
 
     def update_from_analyzer(self, analyzer: DTSAnalyzer):
         self.set("Auto")
@@ -363,7 +372,9 @@ class DTSTabView(widget.CTkTabview):
         if source == "abuseipdb":
             if source not in self.reports:
                 self.reports[source] = DTSAbuseIPDBReport(self.tab("Auto"))
-                self.reports[source].grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+                self.reports[source].grid(
+                    row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
+                )
 
             self.textBoxData.delete("0.0", "end")
             self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
@@ -375,7 +386,9 @@ class DTSTabView(widget.CTkTabview):
         elif source == "virustotal":
             if source not in self.reports:
                 self.reports[source] = DTSVirusTotalReport(self.tab("Auto"))
-                self.reports[source].grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+                self.reports[source].grid(
+                    row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
+                )
 
             self.textBoxData.delete("0.0", "end")
             self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
@@ -387,7 +400,9 @@ class DTSTabView(widget.CTkTabview):
         elif source == "base64":
             if source not in self.reports:
                 self.reports[source] = DTSBase64Report(self.tab("Auto"))
-                self.reports[source].grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+                self.reports[source].grid(
+                    row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
+                )
 
             self.textBoxData.delete("0.0", "end")
             self.textBoxData.insert("0.0", "Nothing to show here")
@@ -423,6 +438,7 @@ class DTSTabView(widget.CTkTabview):
 class DTSPreferencesGeneral(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, kwargs)
+
 
 class DTSPreferences(widget.CTkFrame):
     def __init__(self, master, config, **kwargs):
@@ -562,7 +578,7 @@ class DTSToolBox(widget.CTk):
     def cb_on_focus(self, event):
         if event.widget != self or self.config.get("ui", "analyze_on_focus") == "0":
             return
-        
+
         self.searchBar.focus()
 
         try:
@@ -573,7 +589,7 @@ class DTSToolBox(widget.CTk):
         if clipboard == self.searchBar.get() or clipboard == "":
             print("[ui] nothing or nothing new to analyze")
             return
-        
+
         self.analyzer.process(clipboard)
         if self.analyzer.insertable:
             self.clear_search_bar()

@@ -38,9 +38,15 @@ dimension = 640x1022+1893+323
     def set(self, section, key, value):
         self.config[section][key] = value
 
+    def get_proxy_string(self) -> None | str:
+        val = self.get("general", "proxy")
+        if val == 'false':
+            return None
+        return val
+
     def get_iconify_on_escape(self):
-        val = self.get('ui', 'iconify_on_escape')
-        if val is None or val == 'false':
+        val = self.get("ui", "iconify_on_escape")
+        if val is None or val == "false":
             return False
         else:
             return True
@@ -59,7 +65,7 @@ dimension = 640x1022+1893+323
         else:
             return val
 
-    def get_analyze_on_focus(self) -> bool :
+    def get_analyze_on_focus(self) -> bool:
         val = self.get("ui", "analyze_on_focus")
         if val is None or val == "false":
             return False
