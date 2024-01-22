@@ -36,7 +36,7 @@ class CmdWrapper:
         import subprocess
 
         self.process = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=None)
-        #while self.process.poll() is None:
+        # while self.process.poll() is None:
         #    time.sleep(0.05)
         self.process.wait(timeout=5)
         output, _ = self.process.communicate()
@@ -128,7 +128,7 @@ class NetUser(CmdWrapper):
         self.ui = ui
 
     def parse(self, text):
-        return text 
+        return text
 
     def query(self, id, user, domain=True):
         def callback(id, response):
@@ -154,13 +154,11 @@ class Base64Decoder:
         import base64
 
         try:
-            result = base64.decode(s.decode("utf-8"))
-        except Exception:
-            return None
+            result = base64.b64decode(s.encode('utf-8'))
+        except Exception as e:
+            print(f'[base64decoder] encounter error: {e}')
+            return
         self.ui.render(source="base64", box=(id, result))
-
-
-## todo: return with dataclass instead of json
 
 
 class AbuseIPDB:
@@ -225,7 +223,7 @@ class DTSWorker:
         self.virusTotal = VirusTotal(apiKey=virusTotalAPI, ui=self.ui)
         self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBAPI, ui=self.ui)
         self.netUser = NetUser(ui=self.ui)
-        self.base64Decoder = Base64Decoder(ui = self.ui)
+        self.base64Decoder = Base64Decoder(ui=self.ui)
 
     def run(self, id, target={}, data=""):
         for t in target:
@@ -239,5 +237,5 @@ class DTSWorker:
                 self.netUser.query(id, data)
             elif t == "base64":
                 self.base64Decoder.query(id, data)
-            else:    
+            else:
                 pass

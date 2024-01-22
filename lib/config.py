@@ -1,6 +1,7 @@
 class DTSConfig:
     def __init__(self, configFile="config.ini"):
         import configparser
+
         self.defaultCfg = """
 [general]
 proxy_auth = insert_your_proxy_string_here
@@ -29,25 +30,41 @@ dimension = 640x1022+1893+323
         try:
             return self.config[section][configString]
         except Exception:
-            print(f'[config] can not retrieve key `{configString}` in section `{section}`')
+            print(
+                f"[config] can not retrieve key `{configString}` in section `{section}`"
+            )
             return None
 
     def set(self, section, key, value):
         self.config[section][key] = value
 
+    def get_iconify_on_escape(self):
+        val = self.get('ui', 'iconify_on_escape')
+        if val is None or val == 'false':
+            return False
+        else:
+            return True
+
     def get_clipboard_max_length(self):
-        val = self.get('ui', 'clipboard_max_length')
+        val = self.get("ui", "clipboard_max_length")
         if val is None:
-            print('[config] using default value of 1000')
+            print("[config] using default value of 1000")
             return 1000
         return int(val)
 
     def get_dimension(self):
-        return self.get("ui", "dimension")
-    
-    def get_analyze_on_focus(self):
-        val = self.get("general", "analyze_on_focus")
-        return val != "0" and val is not None
+        val = self.get("ui", "dimension")
+        if val is None:
+            return "640x1022+1893+323"
+        else:
+            return val
+
+    def get_analyze_on_focus(self) -> bool :
+        val = self.get("ui", "analyze_on_focus")
+        if val is None or val == "false":
+            return False
+        else:
+            return True
 
     def persist(self):
         with open(self.configFile, "wt+") as f:
@@ -61,8 +78,8 @@ dimension = 640x1022+1893+323
                 with open(self.configFile, "rt") as f:
                     self.config.read_file(f)
             except Exception as e:
-                print(f'[config] can not read config due to {e}')
-                print('[config] using default config')
+                print(f"[config] can not read config due to {e}")
+                print("[config] using default config")
                 self.use_default()
 
         else:

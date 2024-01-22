@@ -1,3 +1,4 @@
+import gc
 import uuid
 import customtkinter as widget
 from tkinter import ttk, font
@@ -6,8 +7,6 @@ from lib.analyzer import DTSAnalyzer
 from lib.worker import DTSWorker
 from lib.tkdial import Meter
 from lib.CTkListbox import CTkListbox
-
-# from lib.CTkTable import CTkTable
 from iso3166 import countries
 from lib.util import resource_path
 from lib.structure import AbuseObject, VirusTotalObject, VTAttributes
@@ -119,6 +118,9 @@ class DTSHistory(widget.CTkScrollableFrame):
         pass
 
 
+class DTSGenericReport(widget.CTkFrame):
+    pass
+
 class DTSVirusTotalReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -156,7 +158,6 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.magicInfo = DTSLabelWithBtn(self, web_btn=False, copy_btn=False)
 
     def render_exception(self, message):
-        self.label.configure(text="VirusTotal Report")
         self.rateMeter.set(0)
         self.result.configure(message)
         self.knownNames.grid_remove()
@@ -277,12 +278,48 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             self.hostnames.grid(padx=30, pady=4)
 """
 
+class DTSBase64Report(widget.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master)
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        from PIL import Image
+
+        self.copyBtn = widget.CTkButton(
+                self,
+                text="Copy",
+                width=30,
+                height=20,
+                image=widget.CTkImage(
+                    dark_image=Image.open(resource_path("lib\\copy.png")), size=(15, 15)
+                ),
+            )
+        self.textContent = widget.CTkTextbox(self, font=widget.CTkFont(family="Consolas", size=14))
+
+        self.copyBtn.bind('<Button-1>', command=self.cb_on_copy)
+
+    def cb_on_copy(self, event):
+        self.clipboard_clear()
+        self.clipboard_append(self.textContent.get("0.0", "end"))
+        print('[base64report] decoded content copied')
+
+    def populate(self, result: str):
+        self.copyBtn.grid(row=0, column=0, padx=20, pady=10)
+        self.textContent.grid(row=1, column=0, padx=5, pady=10, columnspan=1, rowspan=1, sticky="SWEN")
+        self.clear()
+        self.textContent.insert("0.0", result)
+
+    def clear(self):
+        self.textContent.delete("0.0", "end")
 
 class DTSTabView(widget.CTkTabview):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.tabNames = ["Auto", "Data", "History", "Log", "Preferences"]
-        self.report = None
+        self.reports = {}
+        self.reportShowing = ''
 
         for name in self.tabNames:
             self.add(name)
@@ -312,32 +349,57 @@ class DTSTabView(widget.CTkTabview):
     def update_history(self, target):
         pass
 
+    def hide_other_reports(self, except_for: str):
+        for r in self.reports:
+            if r != except_for:
+                self.reports[r].grid_remove()
+
+        self.reports[except_for].grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+
     def update_from_analyzer(self, analyzer: DTSAnalyzer):
         self.set("Auto")
 
     def render_from_worker(self, source, data):
+        # todo: factoring out common code patterns
         if source == "abuseipdb":
-            if self.report is not None:
-                self.report.destroy()
+            if source not in self.reports:
+                self.reports[source] = DTSAbuseIPDBReport(self.tab("Auto"))
+                self.reports[source].grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+
             self.textBoxData.delete("0.0", "end")
             self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
 
-            self.report = DTSAbuseIPDBReport(self.tab("Auto"))
-            self.report.populate(data)
-            self.report.grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+            self.hide_other_reports(except_for=source)
+            self.reports[source].populate(data)
+            self.reportShowing = source
 
         elif source == "virustotal":
-            if self.report is not None:
-                self.report.destroy()
+            if source not in self.reports:
+                self.reports[source] = DTSVirusTotalReport(self.tab("Auto"))
+                self.reports[source].grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+
             self.textBoxData.delete("0.0", "end")
             self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
 
-            self.report = DTSVirusTotalReport(self.tab("Auto"))
-            self.report.populate(data)
-            self.report.grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+            self.hide_other_reports(except_for=source)
+            self.reports[source].populate(data)
+            self.reportShowing = source
+
+        elif source == "base64":
+            if source not in self.reports:
+                self.reports[source] = DTSBase64Report(self.tab("Auto"))
+                self.reports[source].grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
+
+            self.textBoxData.delete("0.0", "end")
+            self.textBoxData.insert("0.0", "Nothing to show here")
+
+            self.hide_other_reports(except_for=source)
+            self.reports[source].populate(data)
+            self.reportShowing = source
 
         else:
-            print(f'[ui] unknown source `{source}` with data = `{data}`')
+            print(f"[ui] unknown source `{source}` with data = `{data}`")
+
 
 """     
         DATA = {
@@ -360,7 +422,7 @@ class DTSTabView(widget.CTkTabview):
 
 
 class DTSPreferences(widget.CTkFrame):
-    def __init__(self, master, config,**kwargs):
+    def __init__(self, master, config, **kwargs):
         super().__init__(master, kwargs)
         self.config = config
 
@@ -437,14 +499,17 @@ class DTSToolBox(widget.CTk):
 
     def bind_events(self):
         self.bind("<FocusIn>", self.cb_on_focus)
-        self.bind("<Escape>", lambda e: self.iconify())
+        if self.config.get_iconify_on_escape() is True:
+            self.bind("<Escape>", lambda e: self.iconify())
         self.protocol("WM_DELETE_WINDOW", self.cb_on_close)
         self.bind("<Configure>", self.cb_on_drag)
         self.button.bind("<Button-1>", self.cb_on_entry_update)
+        self.searchBar.bind("<Return>", self.cb_on_entry_update)
         # self.searchDropdown.bind('<FocusIn>', self.cb_on_dropdown_focus)
 
+    # this function should only be called from workers to deliver data to the ui
     def render(self, source, box):
-        print(f"[ui] data received from {source}")    
+        print(f"[ui] data received from {source}")
         (id, data) = box
         if id == self.expectingDataId:
             if self.analyzer.insertable:
@@ -492,14 +557,18 @@ class DTSToolBox(widget.CTk):
     def cb_on_focus(self, event):
         if event.widget != self or self.config.get("ui", "analyze_on_focus") == "0":
             return
+        
         self.searchBar.focus()
+
         try:
             clipboard = self.clipboard_get().strip()
         except Exception:
             clipboard = ""
+
         if clipboard == self.searchBar.get() or clipboard == "":
             print("[ui] nothing or nothing new to analyze")
             return
+        
         self.analyzer.process(clipboard)
         if self.analyzer.insertable:
             self.clear_search_bar()
@@ -523,13 +592,13 @@ class DTSToolBox(widget.CTk):
 
         if self.analyzer.is_base64():
             self.expectingDataId = uuid.uuid4()
-            self.tabView.update_from_analyzer()
+            self.tabView.update_from_analyzer(self.analyzer)
             self.worker.run(self.expectingDataId, ["base64"], self.analyzer.text)
 
         if self.analyzer.is_user():
             self.expectingDataId = uuid.uuid4().hex
             self.tabView.update_from_analyzer(self.analyzer)
-            self.worker.run(self.expectingDataId, ['netuser'], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["netuser"], self.analyzer.text)
 
     def exit_gracefully(self):
         # save configs
