@@ -1,31 +1,31 @@
-from dataclasses import dataclass
 import io
-from typing import *
-import simdjson, threading
-import subprocess
-import uuid, os
+import simdjson
+import threading
 from pathlib import Path
 import pycurl
-import certifi
-
 from .util import resource_path
 from .structure import AbuseObject, VirusTotalObject
 
+
 class CmdWrapper:
-    def __init__(self, exe='', callback = None):
+    def __init__(self, exe="", callback=None):
         self.exe = exe
         self.callback = callback
         self.process = None
         Path(".\\tmp").mkdir(exist_ok=True)
 
     def thread_fn(self, cmdline, callback):
+        import uuid
+        import os
+        import subprocess
+
         # use temp file due to subprocess stdout = PIPE blocks itself
-        ftempName = f'tmp\\{uuid.uuid4()}.bin'
-        ftemp = open(ftempName, 'w+')
+        ftempName = f"tmp\\{uuid.uuid4()}.bin"
+        ftemp = open(ftempName, "w+")
         self.process = subprocess.Popen(cmdline, stdout=ftemp, stderr=None)
         self.process.wait(timeout=10)
         ftemp.close()
-        with open(ftempName, 'r') as f:
+        with open(ftempName, "r") as f:
             output = f.read()
 
         callback(output)
@@ -36,36 +36,38 @@ class CmdWrapper:
     def query(self, args):
         cmdline = [self.exe, args]
 
-        print(f'[+] running {self.exe} with cmdline: {cmdline}')
+        print(f"[+] running {self.exe} with cmdline: {cmdline}")
         t = threading.Thread(target=self.thread_fn, args=[cmdline, self.callback])
         t.start()
 
     def force_quit(self):
         self.process.kill()
 
+
 class Curl(CmdWrapper):
-    def __init__(self, exe=resource_path('bin\\curl.exe'), callback = None, proxy=None):
+    def __init__(self, exe=resource_path("bin\\curl.exe"), callback=None, proxy=None):
         super().__init__(exe, callback)
         self.proxy = proxy
-        self.t : threading.Thread = None
+        self.t: threading.Thread = None
 
     ## todo: get http code from curl for error handling
-    def query(self, url, headers = {}, cookies = {}):
+    def query(self, url, headers={}, cookies={}):
         cmdline = [self.exe, url]
 
-        if self.proxy != None:
-            cmdline.append('--proxy')
-            cmdline.append(f'{self.proxy}')
-            cmdline.append('--ssl-no-revoke')
+        if self.proxy is not None:
+            cmdline.append("--proxy")
+            cmdline.append(f"{self.proxy}")
+            cmdline.append("--ssl-no-revoke")
 
         for header, value in headers.items():
-            cmdline.append('-H')
-            cmdline.append(f'{header}: {value}')
+            cmdline.append("-H")
+            cmdline.append(f"{header}: {value}")
 
-        print(f'[+] calling curl with: {cmdline}')
+        print(f"[+] calling curl with: {cmdline}")
         t = threading.Thread(target=self.thread_fn, args=[cmdline, self.callback])
         t.daemon = True
         t.start()
+
 
 class LibCurl:
     def __init__(self, callback=None, proxy=None):
@@ -77,37 +79,44 @@ class LibCurl:
         if debug:
             handle.setopt(handle.VERBOSE, True)
         buffer = io.BytesIO()
-        
-        handle.setopt(handle.USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0')
+
+        handle.setopt(
+            handle.USERAGENT,
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+        )
         handle.setopt(handle.WRITEFUNCTION, buffer.write)
         handle.setopt(handle.URL, url)
-        
-        if self.proxy != None:
+
+        if self.proxy is not None:
             handle.setopt(handle.PROXY, self.proxy)
             handle.setopt(handle.SSL_OPTIONS, handle.SSLOPT_NO_REVOKE)
 
-        if headers != None:
+        if headers is not None:
             handle.setopt(handle.HTTPHEADER, headers)
         handle.perform()
-        code = handle.getinfo(handle.RESPONSE_CODE)
+        code: int = handle.getinfo(handle.RESPONSE_CODE)
         body = buffer.getvalue()
-        print(body.decode())
+
         handle.close()
         buffer.close()
         callback(id, (code, body.decode()))
 
-    def query(self, id, url, headers = {}, cookies = {}):
+    def query(self, id, url, headers={}, cookies={}):
         pc_headers = []
         for header, value in headers.items():
-            pc_headers.append(f'{header}: {value}')
+            pc_headers.append(f"{header}: {value}")
 
-        t = threading.Thread(target=self.thread_fn, args=[id, url, self.callback, pc_headers, cookies])
+        t = threading.Thread(
+            target=self.thread_fn, args=[id, url, self.callback, pc_headers, cookies]
+        )
         t.daemon = True
         t.start()
 
+
 class NetUser(CmdWrapper):
-    def __init__(self, exe='net.exe', callback = None):
+    def __init__(self, exe="net.exe", callback=None):
         super().__init__(exe, callback)
+
 
 class Base64Decoder:
     def __init__(self):
@@ -115,62 +124,61 @@ class Base64Decoder:
 
     def query(s):
         import base64
+
         try:
-            result = base64.decode(s.decode('utf-8'))
+            result = base64.decode(s.decode("utf-8"))
         except Exception:
             return None
         return result
 
+
 ## todo: return with dataclass instead of json
-@dataclass
-class AbuseIPDBResponse:
-    raw: str
-    error: Any
+
 
 class AbuseIPDB:
     def __init__(self, apiKey, ui):
         def callback(id, response):
             (code, body) = response
             # parse response, since result is json
-            if code == 200 and body != '':
-                data = simdjson.loads(body)
-                abuseObject = AbuseObject(**data)
-                ui.render(source='abuseipdb', box=(id, abuseObject))
+            if code == 200 and body != "":
+                jsonData = simdjson.loads(body)
+                abuseObject = AbuseObject(**jsonData)
+                ui.render(source="abuseipdb", box=(id, abuseObject))
 
         self.apiKey = apiKey
-        self.ui = ui # a ref to UI object
+        self.ui = ui  # a ref to UI object
         self.curl = LibCurl(callback=callback)
         self.running = False
 
     def query(self, id, text, maxAge=90):
         headers = {
-            'Key': self.apiKey,
-            'Accept': 'application/json',
+            "Key": self.apiKey,
+            "Accept": "application/json",
         }
-        url = f'https://api.abuseipdb.com/api/v2/check?ipAddress={text}&maxAgeInDays={maxAge}'
+        url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={text}&maxAgeInDays={maxAge}"
         self.curl.query(id, url, headers)
+
 
 class VirusTotal:
     def __init__(self, apiKey, ui):
         def callback(id, response):
             (code, body) = response
             # parse response, since result is json
-            if code == 200 and body != '':
-                data = simdjson.loads(body)
-                virusTotalObject = VirusTotalObject(**data)
-                ui.render(source='virustotal', box=(id, virusTotalObject))
-        
-        self.ui = ui # a ref to UI object
+            if code == 200 and body != "":
+                jsonData = simdjson.loads(body)
+                virusTotalObject = VirusTotalObject(**jsonData)
+                ui.render(source="virustotal", box=(id, virusTotalObject))
+
+        self.ui = ui  # a ref to UI object
         self.apiKey = apiKey
         self.curl = LibCurl(callback=callback)
 
-    def query(self, id, hash, options = {}):
-        headers = {
-            'x-apikey': f'{self.apiKey}'
-        }
+    def query(self, id, hash, options={}):
+        headers = {"x-apikey": f"{self.apiKey}"}
 
-        url = f'https://www.virustotal.com/api/v3/search?query={hash}'
+        url = f"https://www.virustotal.com/api/v3/search?query={hash}"
         self.curl.query(id, url, headers)
+
 
 class DTSWorker:
     def __init__(self, config, ui):
@@ -178,18 +186,18 @@ class DTSWorker:
         self.config = config
         self.ui = ui
         try:
-            virusTotalAPI = self.config.get('api', 'virustotal')
+            virusTotalAPI = self.config.get("api", "virustotal")
         except Exception as e:
             raise e
         try:
-            abuseIPDBAPI = self.config.get('api', 'abuseipdb')
+            abuseIPDBAPI = self.config.get("api", "abuseipdb")
         except Exception as e:
             raise e
 
         self.virusTotal = VirusTotal(apiKey=virusTotalAPI, ui=self.ui)
         self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBAPI, ui=self.ui)
 
-    def run(self, id, target={}, data=''):
+    def run(self, id, target={}, data=""):
         for t in target:
             if t == "virustotal":
                 self.virusTotal.query(id, data)
