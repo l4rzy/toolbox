@@ -1,24 +1,23 @@
 import io
 import simdjson
 import threading
-from pathlib import Path
 import pycurl
 from .util import resource_path
 from .structure import AbuseObject, VirusTotalObject
 
 
 class CmdWrapper:
-    def __init__(self, exe="", callback=None):
+    def __init__(self, exe=""):
         self.exe = exe
-        self.callback = callback
         self.process = None
-        Path(".\\tmp").mkdir(exist_ok=True)
 
-    def thread_fn(self, cmdline, callback):
+    def thread_fn(self, id, cmdline, callback):
         import uuid
         import os
         import subprocess
+        from pathlib import Path
 
+        Path(".\\tmp").mkdir(exist_ok=True)
         # use temp file due to subprocess stdout = PIPE blocks itself
         ftempName = f"tmp\\{uuid.uuid4()}.bin"
         ftemp = open(ftempName, "w+")
@@ -27,17 +26,27 @@ class CmdWrapper:
         ftemp.close()
         with open(ftempName, "r") as f:
             output = f.read()
-
-        callback(output)
         self.process.terminate()
         if os.path.exists(ftempName):
             os.remove(ftempName)
 
-    def query(self, args):
+        callback(id, output)
+
+    def thread_fn_pipe(self, id, cmdline, callback):
+        import subprocess
+
+        self.process = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=None)
+        #while self.process.poll() is None:
+        #    time.sleep(0.05)
+        self.process.wait(timeout=5)
+        output, _ = self.process.communicate()
+        callback(id, output)
+
+    def query(self, id, args):
         cmdline = [self.exe, args]
 
-        print(f"[+] running {self.exe} with cmdline: {cmdline}")
-        t = threading.Thread(target=self.thread_fn, args=[cmdline, self.callback])
+        print(f"[worker] running: {cmdline}")
+        t = threading.Thread(target=self.thread_fn, args=[id, cmdline, self.callback])
         t.start()
 
     def force_quit(self):
@@ -114,22 +123,41 @@ class LibCurl:
 
 
 class NetUser(CmdWrapper):
-    def __init__(self, exe="net.exe", callback=None):
-        super().__init__(exe, callback)
+    def __init__(self, ui):
+        super().__init__("net.exe")
+        self.ui = ui
+
+    def parse(self, text):
+        return text 
+
+    def query(self, id, user, domain=True):
+        def callback(id, response):
+            result = self.parse(response)
+            self.ui.render(source="netuser", box=(id, result))
+
+        cmdline = [self.exe, "user"]
+        if domain:
+            cmdline.append("/domain")
+
+        cmdline.append(user)
+        print(f"[worker] calling: {cmdline}")
+        t = threading.Thread(target=self.thread_fn, args=[id, cmdline, callback])
+        t.daemon = True
+        t.start()
 
 
 class Base64Decoder:
-    def __init__(self):
-        pass
+    def __init__(self, ui):
+        self.ui = ui
 
-    def query(s):
+    def query(self, id, s):
         import base64
 
         try:
             result = base64.decode(s.decode("utf-8"))
         except Exception:
             return None
-        return result
+        self.ui.render(source="base64", box=(id, result))
 
 
 ## todo: return with dataclass instead of json
@@ -196,6 +224,8 @@ class DTSWorker:
 
         self.virusTotal = VirusTotal(apiKey=virusTotalAPI, ui=self.ui)
         self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBAPI, ui=self.ui)
+        self.netUser = NetUser(ui=self.ui)
+        self.base64Decoder = Base64Decoder(ui = self.ui)
 
     def run(self, id, target={}, data=""):
         for t in target:
@@ -205,5 +235,9 @@ class DTSWorker:
             elif t == "abuseipdb":
                 self.abuseIPDB.query(id, data)
                 self.isWorking = True
-            else:
+            elif t == "netuser":
+                self.netUser.query(id, data)
+            elif t == "base64":
+                self.base64Decoder.query(id, data)
+            else:    
                 pass

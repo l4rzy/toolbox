@@ -1,8 +1,8 @@
 import uuid
 import customtkinter as widget
 from tkinter import ttk, font
-from lib.config import Config
-from lib.analyzer import Analyzer
+from lib.config import DTSConfig
+from lib.analyzer import DTSAnalyzer
 from lib.worker import DTSWorker
 from lib.tkdial import Meter
 from lib.CTkListbox import CTkListbox
@@ -312,7 +312,7 @@ class DTSTabView(widget.CTkTabview):
     def update_history(self, target):
         pass
 
-    def update_analyzer(self, analyzer: Analyzer):
+    def update_from_analyzer(self, analyzer: DTSAnalyzer):
         self.set("Auto")
 
     def render_from_worker(self, source, data):
@@ -326,7 +326,7 @@ class DTSTabView(widget.CTkTabview):
             self.report.populate(data)
             self.report.grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
 
-        if source == "virustotal":
+        elif source == "virustotal":
             if self.report is not None:
                 self.report.destroy()
             self.textBoxData.delete("0.0", "end")
@@ -336,6 +336,8 @@ class DTSTabView(widget.CTkTabview):
             self.report.populate(data)
             self.report.grid(row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN")
 
+        else:
+            print(f'[ui] unknown source `{source}` with data = `{data}`')
 
 """     
         DATA = {
@@ -358,8 +360,12 @@ class DTSTabView(widget.CTkTabview):
 
 
 class DTSPreferences(widget.CTkFrame):
-    def __init__(self, master, **kwargs):
+    def __init__(self, master, config,**kwargs):
         super().__init__(master, kwargs)
+        self.config = config
+
+    def load(self):
+        pass
 
 
 class DTSToolBox(widget.CTk):
@@ -399,15 +405,21 @@ class DTSToolBox(widget.CTk):
         self.drag_id = ""
 
         # config
-        self.config = Config()
+        self.config = DTSConfig()
         # analyzer
-        self.analyzer = Analyzer()
+        self.analyzer = DTSAnalyzer(self.config)
         self.worker = DTSWorker(self.config, self)
         ## internal states
         self.expectingDataId: str = ""
 
     def clear_search_bar(self):
         self.searchBar.delete(0, len(self.searchBar.get()))
+
+    def set_search_bar(self):
+        if self.searchBar.get() == self.analyzer.text:
+            return
+        self.clear_search_bar()
+        self.searchBar.insert(0, self.analyzer.text)
 
     def setup_geometry(self):
         self.minsize(640, 320)
@@ -432,19 +444,20 @@ class DTSToolBox(widget.CTk):
         # self.searchDropdown.bind('<FocusIn>', self.cb_on_dropdown_focus)
 
     def render(self, source, box):
-        print(f"[+] UI has received data from {source}")
+        print(f"[ui] data received from {source}")    
         (id, data) = box
         if id == self.expectingDataId:
             if self.analyzer.insertable:
-                self.searchBar.insert(0, self.analyzer.text)
+                self.set_search_bar()
             self.tabView.render_from_worker(source, data)
         else:
-            print("[+] UI has dropped the data")
+            print("[ui] data dropped due to expiration")
 
     # add events to app
     def cb_on_close(self):
         self.exit_gracefully()
 
+    # unused since dropdown focus bug
     def cb_on_search_dropdown_click(self, text):
         self.clear_search_bar()
         self.searchBar.insert(0, text)
@@ -479,15 +492,13 @@ class DTSToolBox(widget.CTk):
     def cb_on_focus(self, event):
         if event.widget != self or self.config.get("ui", "analyze_on_focus") == "0":
             return
-        print("[i] focused on main window")
-        self.analyzer.reset()
         self.searchBar.focus()
         try:
             clipboard = self.clipboard_get().strip()
         except Exception:
             clipboard = ""
         if clipboard == self.searchBar.get() or clipboard == "":
-            print("[i] nothing or nothing new to analyze")
+            print("[ui] nothing or nothing new to analyze")
             return
         self.analyzer.process(clipboard)
         if self.analyzer.insertable:
@@ -502,20 +513,29 @@ class DTSToolBox(widget.CTk):
 
         if self.analyzer.is_ip():
             self.expectingDataId = uuid.uuid4().hex
-            self.tabView.update_analyzer(self.analyzer)
+            self.tabView.update_from_analyzer(self.analyzer)
             self.worker.run(self.expectingDataId, ["abuseipdb"], self.analyzer.text)
 
         if self.analyzer.is_hash():
             self.expectingDataId = uuid.uuid4()
-            self.tabView.update_analyzer(self.analyzer)
+            self.tabView.update_from_analyzer(self.analyzer)
             self.worker.run(self.expectingDataId, ["virustotal"], self.analyzer.text)
+
+        if self.analyzer.is_base64():
+            self.expectingDataId = uuid.uuid4()
+            self.tabView.update_from_analyzer()
+            self.worker.run(self.expectingDataId, ["base64"], self.analyzer.text)
+
+        if self.analyzer.is_user():
+            self.expectingDataId = uuid.uuid4().hex
+            self.tabView.update_from_analyzer(self.analyzer)
+            self.worker.run(self.expectingDataId, ['netuser'], self.analyzer.text)
 
     def exit_gracefully(self):
         # save configs
         self.config.persist()
-        print("[i] exiting gracefully ...")
+        print("[ui] exiting gracefully ...")
         self.destroy()
-        print("hel;lo")
 
     def run(self):
         self.setup_geometry()
@@ -524,5 +544,4 @@ class DTSToolBox(widget.CTk):
 
 
 app = DTSToolBox()
-
 app.run()
