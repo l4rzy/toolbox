@@ -1,4 +1,3 @@
-import gc
 import uuid
 import customtkinter as widget
 from tkinter import ttk, font
@@ -421,10 +420,16 @@ class DTSTabView(widget.CTkTabview):
 """
 
 
+class DTSPreferencesGeneral(widget.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, kwargs)
+
 class DTSPreferences(widget.CTkFrame):
     def __init__(self, master, config, **kwargs):
         super().__init__(master, kwargs)
         self.config = config
+
+        self.generalPrefs = DTSPreferencesGeneral(self)
 
     def load(self):
         pass
