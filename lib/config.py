@@ -8,10 +8,12 @@ proxy_auth = insert_your_proxy_string_here
 [api]
 abuseipdb = insert_your_abuseipdb_api_key_here
 virustotal = insert_your_vt_api_key_here
+shodan = insert_your_shodan_api_key_here
 [ui]
 analyze_on_focus = 1
+iconify_on_escape = true
 clipboard_max_length = 1000
-dimension = 640x1022+1893+323
+dimension = 640x1022+10+10
 """
         self.configFile = configFile
         self.config = configparser.ConfigParser(allow_no_value=True)

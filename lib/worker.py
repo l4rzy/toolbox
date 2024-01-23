@@ -3,7 +3,7 @@ import simdjson
 import threading
 import pycurl
 from .util import resource_path
-from .structure import AbuseObject, VirusTotalObject
+from .structure import AbuseObject, VirusTotalObject, ShodanObject
 
 
 class CmdWrapper:
@@ -171,6 +171,10 @@ class AbuseIPDB:
                 abuseObject = AbuseObject(**jsonData)
                 ui.render(source="abuseipdb", box=(id, abuseObject))
 
+        if apiKey is None:
+            print("[abuseipdb] api key not provived, abuseipdb will not work")
+            self.apiKey = ""
+
         self.apiKey = apiKey
         self.ui = ui  # a ref to UI object
         self.useProxy: None | str = self.ui.config.get_proxy_string()
@@ -186,6 +190,59 @@ class AbuseIPDB:
         self.curl.query(id, url, headers)
 
 
+class Shodan:
+    def __init__(self, apiKey, ui):
+        def callback(id, response):
+            (code, body) = response
+            print(body)
+            if code == 200 and body != "":
+                jsonData = simdjson.loads(body)
+                shodanObject = ShodanObject(**jsonData)
+                ui.render(source="shodan", box=(id, shodanObject))
+
+        if apiKey is None:
+            print("[shodan] api key not provived, shodan will not work")
+            self.apiKey = ""
+
+        self.apiKey = apiKey
+        self.ui = ui
+        self.useProxy: None | str = self.ui.config.get_proxy_string()
+        self.curl = LibCurl(callback=callback, proxy=self.useProxy)
+
+    def query(self, id, text):
+        url = f"https://api.shodan.io/shodan/host/{text}?key={self.apiKey}&minify=false"
+        self.curl.query(id, url)
+
+
+class DnsResolver:
+    def __init__(self, ui):
+        self.ui = ui
+
+    def thread_fn(self, id, hname, callback, reverse):
+        import socket
+
+        try:
+            if reverse:
+                res = socket.gethostbyaddr(hname)[0]
+            else:
+                res = socket.gethostbyname(hname)
+        except Exception:
+            res = ""
+        callback(id, res)
+
+    def parse(self, text):
+        return text
+
+    def query(self, id, hname, reverse=False):
+        def thread_callback(id, response):
+            result = self.parse(response)
+            self.ui.render(source="dns", box=(id, result))
+
+        t = threading.Thread(target=self.thread_fn, args=[id, hname, thread_callback, reverse])
+        t.daemon = True
+        t.start()
+
+
 class VirusTotal:
     def __init__(self, apiKey, ui):
         def callback(id, response):
@@ -195,6 +252,10 @@ class VirusTotal:
                 jsonData = simdjson.loads(body)
                 virusTotalObject = VirusTotalObject(**jsonData)
                 ui.render(source="virustotal", box=(id, virusTotalObject))
+
+        if apiKey is None:
+            print("[virustotal] api key not provived, virustotal will not work")
+            self.apiKey = ""
 
         self.ui = ui  # a ref to UI object
         self.apiKey = apiKey
@@ -213,31 +274,29 @@ class DTSWorker:
         self.isWorking = False
         self.config = config
         self.ui = ui
-        try:
-            virusTotalAPI = self.config.get("api", "virustotal")
-        except Exception as e:
-            raise e
-        try:
-            abuseIPDBAPI = self.config.get("api", "abuseipdb")
-        except Exception as e:
-            raise e
+
+        virusTotalAPI = self.config.get("api", "virustotal")
+        abuseIPDBAPI = self.config.get("api", "abuseipdb")
+        # shodanAPIKey = self.config.get("api", "shodan")
 
         self.virusTotal = VirusTotal(apiKey=virusTotalAPI, ui=self.ui)
         self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBAPI, ui=self.ui)
         self.netUser = NetUser(ui=self.ui)
         self.base64Decoder = Base64Decoder(ui=self.ui)
+        # self.shodan = Shodan(apiKey=shodanAPIKey, ui=self.ui)
+        self.dnsResolver = DnsResolver(ui=self.ui)
 
-    def run(self, id, target={}, data=""):
+    def run(self, id, target={}, text=""):
         for t in target:
             if t == "virustotal":
-                self.virusTotal.query(id, data)
-                self.isWorking = True
+                self.virusTotal.query(id, text)
             elif t == "abuseipdb":
-                self.abuseIPDB.query(id, data)
-                self.isWorking = True
+                self.abuseIPDB.query(id, text)
             elif t == "netuser":
-                self.netUser.query(id, data)
+                self.netUser.query(id, text)
             elif t == "base64":
-                self.base64Decoder.query(id, data)
+                self.base64Decoder.query(id, text)
+            elif t == "dns":
+                self.dnsResolver.query(id, text)
             else:
                 pass

@@ -1,5 +1,6 @@
 import re
 from .config import DTSConfig
+import ipaddress
 
 # stolen from https://ihateregex.io/expr/ip/
 IPV4ADDR = r"(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}"
@@ -34,7 +35,7 @@ class DTSAnalyzer:
         self.categorizers["sha1"] = re.compile(SHA1HASH)
         self.categorizers["md5"] = re.compile(MD5HASH)
         self.categorizers["base64"] = re.compile(BASE64)
-        self.categorizers["computer"] = re.compile(PCOMPUTER)
+        self.categorizers["pcomputer"] = re.compile(PCOMPUTER)
         self.categorizers["user"] = re.compile(USER)
         self.categorizers["domain"] = re.compile(DOMAIN)
         self.dataClass = []
@@ -75,3 +76,9 @@ class DTSAnalyzer:
 
     def is_user(self):
         return any(item in self.dataClass for item in ["user"])
+    
+    def is_pcomputer(self):
+        return any(item in self.dataClass for item in ["pcomputer"])
+    
+    def is_internal_ip(self):
+        return self.is_ip() and ipaddress.ip_address(self.text).is_private is True

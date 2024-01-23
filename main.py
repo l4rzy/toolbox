@@ -12,7 +12,12 @@ from lib.structure import AbuseObject, VirusTotalObject, VTAttributes
 import signal
 import sys
 
+VERSION_MAJOR = 0
+VERSION_MINOR = 1
+VERSION_PATCH = 0
+
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
+widget.set_appearance_mode("dark")
 
 
 def sigint_handler(sig, frame):
@@ -45,24 +50,22 @@ class DTSLabelWithBtn(widget.CTkFrame):
         from PIL import Image
 
         if copy_btn:
+            icpy = Image.open(resource_path("lib\\copy.png"))
             self.cbtn = widget.CTkButton(
                 self,
                 text="",
                 width=30,
                 height=20,
-                image=widget.CTkImage(
-                    dark_image=Image.open(resource_path("lib\\copy.png")), size=(15, 15)
-                ),
+                image=widget.CTkImage(dark_image=icpy, light_image=icpy, size=(15, 15)),
             )
         if web_btn:
+            iweb = Image.open(resource_path("lib\\web.png"))
             self.wbtn = widget.CTkButton(
                 self,
                 text="",
                 width=30,
                 height=20,
-                image=widget.CTkImage(
-                    dark_image=Image.open(resource_path("lib\\web.png")), size=(15, 15)
-                ),
+                image=widget.CTkImage(dark_image=iweb, light_image=iweb, size=(15, 15)),
             )
 
         self.label.grid(column=0, row=0, padx=2, pady=4)
@@ -105,16 +108,17 @@ class DTSLabelWithBtn(widget.CTkFrame):
             self.wbtn.grid_remove()
 
 
-class DTSHistory(widget.CTkScrollableFrame):
+class DTSHistory(CTkListbox):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.list = CTkListbox(self)
-        self.list.grid(
+        self.grid(
             row=0, column=0, padx=4, pady=4, columnspan=1, rowspan=1, sticky="SWEN"
         )
+        self.currentPos = 0
 
     def append(self, target):
-        pass
+        self.insert(self.currentPos, target)
+        self.currentPos += 1
 
 
 class DTSGenericReport(widget.CTkFrame):
@@ -267,35 +271,29 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             self.country.set("Country", f"{country.name}")
 
 
-"""
-        hostnames = data['hostnames']
-        values = [['#', 'Hostname']]
-        if hostnames != []:
-            for index, h in enumerate(hostnames):
-                values.append([index, h])
-            print(values)
-            self.hostnames.configure(values=values, rows=len(values))
-            self.hostnames.grid(padx=30, pady=4)
-"""
-
-
-class DTSBase64Report(widget.CTkFrame):
+##
+class DTSIPReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
-        super().__init__(master)
+        super().__init__(master, **kwargs)
+        self.abuseIPDB = DTSAbuseIPDBReport(self)
+
+
+class DTSTextReport(widget.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
         from PIL import Image
 
+        i = Image.open(resource_path("lib\\copy.png"))
         self.copyBtn = widget.CTkButton(
             self,
             text="Copy",
             width=30,
             height=20,
-            image=widget.CTkImage(
-                dark_image=Image.open(resource_path("lib\\copy.png")), size=(15, 15)
-            ),
+            image=widget.CTkImage(dark_image=i, light_image=i, size=(15, 15)),
         )
         self.textContent = widget.CTkTextbox(
             self, font=widget.CTkFont(family="Consolas", size=14)
@@ -320,16 +318,41 @@ class DTSBase64Report(widget.CTkFrame):
         self.textContent.delete("0.0", "end")
 
 
-class DTSTabView(widget.CTkTabview):
+class DTSLoading(widget.CTkFrame):
     def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        self.loading = widget.CTkLabel(
+            self, text="Loading ...", font=widget.CTkFont(size=18)
+        )
+
+        self.loading.grid(
+            row=0, column=0, padx=5, pady=20, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+
+    def hide(self):
+        self.grid_forget()
+
+    def show(self):
+        self.grid(
+            row=0, column=0, padx=5, pady=10, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+
+
+class DTSTabView(widget.CTkTabview):
+    def __init__(self, master, config=None, **kwargs):
         super().__init__(master, **kwargs)
         self.tabNames = ["Auto", "Data", "History", "Log", "Preferences"]
         self.reports = {}
         self.reportShowing = ""
+        self.config = config
 
         for name in self.tabNames:
             self.add(name)
 
+        self.loading = DTSLoading(self.tab("Auto"))
         self.tab("Data").grid_columnconfigure(0, weight=1)
         self.tab("Data").grid_rowconfigure(0, weight=1)
 
@@ -346,28 +369,57 @@ class DTSTabView(widget.CTkTabview):
         self.tab("Log").grid_columnconfigure(0, weight=1)
         self.tab("Log").grid_rowconfigure(0, weight=1)
 
+        self.tab("Preferences").grid_columnconfigure(0, weight=1)
+        self.tab("Preferences").grid_rowconfigure(0, weight=1)
+        self.preferences = DTSPreferences(self.tab("Preferences"), config=self.config)
+        self.preferences.grid(
+            row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+
+        self.tab("History").grid_columnconfigure(0, weight=1)
+        self.tab("History").grid_rowconfigure(0, weight=1)
+        self.history = DTSHistory(self.tab("History"))
+        self.history.grid(
+            row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+
         self.textBoxLog = widget.CTkTextbox(self.tab("Log"))
         self.textBoxLog.insert("0.0", "Sorry I have nothing to show!\n" * 100)
         self.textBoxLog.grid(
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
 
-    def update_history(self, target):
+    def get_root_geometry(self):
         pass
+
+    def update_history(self, target):
+        self.history.append(target)
+
+    def stop_loading(self):
+        self.loading.hide()
+
+    def start_loading(self):
+        # hide other widgets
+        self.hide_other_reports(except_for=None)  # this will hide all reports
+        self.loading.show()
 
     def hide_other_reports(self, except_for: str):
         for r in self.reports:
             if r != except_for:
                 self.reports[r].grid_remove()
 
+        if except_for is None:
+            return
         self.reports[except_for].grid(
             row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
         )
 
     def update_from_analyzer(self, analyzer: DTSAnalyzer):
         self.set("Auto")
+        self.start_loading()
 
     def render_from_worker(self, source, data):
+        self.stop_loading()
         # todo: factoring out common code patterns
         if source == "abuseipdb":
             if source not in self.reports:
@@ -399,7 +451,7 @@ class DTSTabView(widget.CTkTabview):
 
         elif source == "base64":
             if source not in self.reports:
-                self.reports[source] = DTSBase64Report(self.tab("Auto"))
+                self.reports[source] = DTSTextReport(self.tab("Auto"))
                 self.reports[source].grid(
                     row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
                 )
@@ -437,23 +489,85 @@ class DTSTabView(widget.CTkTabview):
 
 class DTSPreferencesGeneral(widget.CTkFrame):
     def __init__(self, master, **kwargs):
-        super().__init__(master, kwargs)
+        super().__init__(master, **kwargs)
+
+
+class DTSAboutDialog(widget.CTkToplevel):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        sh = self.winfo_screenheight()
+        sw = self.winfo_screenwidth()
+        self.geometry(f"400x300+{int(sw/2-200)}+{int(sh/2-150)}")
+        self.title("About")
+        self.grid_columnconfigure(0, weight=1)
+
+        from PIL import Image
+
+        i = Image.open(resource_path("lib\\icon.png"))
+        image = widget.CTkImage(light_image=i, dark_image=i, size=(150, 150))
+        self.logo = widget.CTkLabel(self, image=image, text="")
+        self.line1 = widget.CTkLabel(
+            self,
+            font=widget.CTkFont(size=18),
+            text=f"DTS Toolbox - version {VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}",
+        )
+        self.line2 = widget.CTkLabel(
+            self, font=widget.CTkFont(size=14), text="Original author: Duc Lam Nguyen"
+        )
+        self.line3 = widget.CTkLabel(
+            self,
+            font=widget.CTkFont(size=12),
+            text="Unlicensed, but free to use and modify",
+        )
+
+        self.logo.grid(
+            row=0, column=0, padx=10, pady=10, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+        self.line1.grid(
+            row=1, column=0, padx=10, pady=8, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+        self.line2.grid(
+            row=2, column=0, padx=10, pady=4, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+        self.line3.grid(
+            row=3, column=0, padx=10, pady=2, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+
+        self.focus()
+        self.bind("<FocusOut>", self.cb_on_focus_out)
+
+    def cb_on_focus_out(self, event):
+        print("[about] focused out")
+        # self.destroy()
 
 
 class DTSPreferences(widget.CTkFrame):
     def __init__(self, master, config, **kwargs):
-        super().__init__(master, kwargs)
+        super().__init__(master, **kwargs)
         self.config = config
+        self.aboutDialog = None
 
-        self.generalPrefs = DTSPreferencesGeneral(self)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        self.about = widget.CTkButton(self, text="About this program")
+        self.about.grid(row=0, column=0, padx=5, pady=5)
+        self.about.bind("<Button-1>", self.cb_on_btn_click)
+
+    def cb_on_btn_click(self, event):
+        if self.aboutDialog is None or not self.aboutDialog.winfo_exists():
+            self.aboutDialog = DTSAboutDialog(self)
+        self.aboutDialog.focus()
 
     def load(self):
         pass
 
+    def get_root_geometry(self):
+        return self.master.get_root_geometry()
+
 
 class DTSToolBox(widget.CTk):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=10)
@@ -483,7 +597,7 @@ class DTSToolBox(widget.CTk):
             row=0, column=0, padx=6, pady=6, columnspan=1, rowspan=1, sticky="NEW"
         )
         self.tabView.grid(
-            row=1, column=0, padx=10, pady=8, columnspan=1, rowspan=1, sticky="SWEN"
+            row=1, column=0, padx=10, pady=4, columnspan=1, rowspan=1, sticky="SWEN"
         )
         self.drag_id = ""
 
@@ -499,6 +613,7 @@ class DTSToolBox(widget.CTk):
         self.searchBar.delete(0, len(self.searchBar.get()))
 
     def set_search_bar(self):
+        self.tabView.update_history(self.analyzer.text)
         if self.searchBar.get() == self.analyzer.text:
             return
         self.clear_search_bar()
@@ -579,7 +694,7 @@ class DTSToolBox(widget.CTk):
         if event.widget != self or self.config.get("ui", "analyze_on_focus") == "0":
             return
 
-        self.searchBar.focus()
+        # self.searchBar.focus()
 
         try:
             clipboard = self.clipboard_get().strip()
@@ -606,20 +721,23 @@ class DTSToolBox(widget.CTk):
             self.tabView.update_from_analyzer(self.analyzer)
             self.worker.run(self.expectingDataId, ["abuseipdb"], self.analyzer.text)
 
-        if self.analyzer.is_hash():
+        elif self.analyzer.is_hash():
             self.expectingDataId = uuid.uuid4()
             self.tabView.update_from_analyzer(self.analyzer)
             self.worker.run(self.expectingDataId, ["virustotal"], self.analyzer.text)
 
-        if self.analyzer.is_base64():
+        elif self.analyzer.is_base64():
             self.expectingDataId = uuid.uuid4()
             self.tabView.update_from_analyzer(self.analyzer)
             self.worker.run(self.expectingDataId, ["base64"], self.analyzer.text)
 
-        if self.analyzer.is_user():
+        elif self.analyzer.is_user():
             self.expectingDataId = uuid.uuid4().hex
             self.tabView.update_from_analyzer(self.analyzer)
             self.worker.run(self.expectingDataId, ["netuser"], self.analyzer.text)
+
+        else:
+            self.tabView.stop_loading()
 
     def exit_gracefully(self):
         # save configs
