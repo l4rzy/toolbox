@@ -59,7 +59,7 @@ class VTAttributes(BaseModel):
     last_submission_date: int
     meaningful_name: str
     trid: List[dict]
-    sandbox_verdicts: dict
+    sandbox_verdicts: Optional[dict] = None
     sha256: str
     tags: List[str]
     last_analysis_date: int

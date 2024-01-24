@@ -109,14 +109,22 @@ class DTSLabelWithBtn(widget.CTkFrame):
 
 
 class DTSHistory(CTkListbox):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
+    def __init__(self, master, mainUI, **kwargs):
+        super().__init__(master, command=self.cb_on_click, **kwargs)
         self.grid(
             row=0, column=0, padx=4, pady=4, columnspan=1, rowspan=1, sticky="SWEN"
         )
         self.currentPos = 0
+        self.mainUI: DTSToolBox = mainUI
+        self.historyClick = False # workaround
+
+    def cb_on_click(self, item):
+        self.historyClick = True
+        self.mainUI.cb_on_entry_update(text=item)
 
     def append(self, target):
+        if self.historyClick:
+            return
         self.insert(self.currentPos, target)
         self.currentPos += 1
 
@@ -163,7 +171,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
 
     def render_exception(self, message):
         self.rateMeter.set(0)
-        self.result.configure(message)
+        self.result.configure(text=message)
         self.knownNames.grid_remove()
         self.magicInfo.grid_remove()
 
@@ -378,7 +386,7 @@ class DTSTabView(widget.CTkTabview):
 
         self.tab("History").grid_columnconfigure(0, weight=1)
         self.tab("History").grid_rowconfigure(0, weight=1)
-        self.history = DTSHistory(self.tab("History"))
+        self.history = DTSHistory(self.tab("History"), self.master)
         self.history.grid(
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
@@ -597,7 +605,7 @@ class DTSToolBox(widget.CTk):
             row=0, column=0, padx=6, pady=6, columnspan=1, rowspan=1, sticky="NEW"
         )
         self.tabView.grid(
-            row=1, column=0, padx=10, pady=4, columnspan=1, rowspan=1, sticky="SWEN"
+            row=1, column=0, padx=10, pady=0, columnspan=1, rowspan=1, sticky="SWEN"
         )
         self.drag_id = ""
 
@@ -625,13 +633,13 @@ class DTSToolBox(widget.CTk):
         if self.config.get("ui", "dimension") is not None:
             self.geometry(self.config.get("ui", "dimension"))
             return
-        (dx, dy) = self.config.get_dimension()
+
         ws = self.winfo_screenwidth()
         hs = self.winfo_screenheight()
 
-        x = (ws) - (int(dx))
-        y = (hs) - (int(dy))
-        self.geometry(f"{dx}x{dy}+{x}+{y}")
+        x = (ws/2) - 320
+        y = (hs/2) - 160
+        self.geometry(f"640x320+{int(x)}+{int(y)}")
 
     def bind_events(self):
         self.bind("<FocusIn>", self.cb_on_focus)
@@ -693,9 +701,7 @@ class DTSToolBox(widget.CTk):
     def cb_on_focus(self, event):
         if event.widget != self or self.config.get("ui", "analyze_on_focus") == "0":
             return
-
-        # self.searchBar.focus()
-
+        
         try:
             clipboard = self.clipboard_get().strip()
         except Exception:
@@ -705,16 +711,15 @@ class DTSToolBox(widget.CTk):
             print("[ui] nothing or nothing new to analyze")
             return
 
-        self.analyzer.process(clipboard)
-        if self.analyzer.insertable:
-            self.clear_search_bar()
-            # self.searchBar.insert(0, clipboard)
-            self.cb_on_entry_update(event, clipboard)
+        self.cb_on_entry_update(event, text=clipboard)
 
     def cb_on_entry_update(self, event=None, text=""):
         if text == "":
             text = self.searchBar.get()
-            self.analyzer.process(text)
+        self.analyzer.process(text)
+        
+        if self.analyzer.insertable:
+            self.clear_search_bar()
 
         if self.analyzer.is_ip():
             self.expectingDataId = uuid.uuid4().hex
