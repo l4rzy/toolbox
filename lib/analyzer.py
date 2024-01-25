@@ -1,6 +1,8 @@
+from enum import Enum
 import re
 from .config import DTSConfig
 import ipaddress
+import validators
 
 # stolen from https://ihateregex.io/expr/ip/
 IPV4ADDR = r"(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}"
@@ -10,15 +12,25 @@ SHA256HASH = r"\b([a-fA-F0-9]{64})\b"
 SHA1HASH = r"\b([a-fA-F0-9]{40})\b"
 MD5HASH = r"\b([a-fA-F0-9]{32})\b"
 
-USER = r"\bndlam\b"
-
-PCOMPUTER = r"\bGOMC\-[0-9]{7}\b"
+PCOMPUTER = r"\b(GOMC|gomc)\-[0-9]{7}\b"
 
 BASE64 = (
     r"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$"
 )
 
-DOMAIN = r"\b\b"
+
+# todo: switch to enum instead of strings
+class DataClass(Enum):
+    IPV4ADDR = 0
+    IPV6ADDR = 1
+    SHA256HASH = 2
+    SHA1HASH = 3
+    MD5HASH = 4
+    BASE64 = 5
+    PCOMPUTER = 6
+    USER = 7
+    DOMAIN = 8
+    INTERNALIP = 9
 
 
 class DTSAnalyzer:
@@ -28,22 +40,17 @@ class DTSAnalyzer:
         self.text = ""
         self.content = ""
         self.insertable = False
+        self.hasResult = False
         self.categorizers = {}
-        self.categorizers["ipv4"] = re.compile(IPV4ADDR)
-        self.categorizers["ipv6"] = re.compile(IPV6ADDR)
-        self.categorizers["sha256"] = re.compile(SHA256HASH)
-        self.categorizers["sha1"] = re.compile(SHA1HASH)
-        self.categorizers["md5"] = re.compile(MD5HASH)
         self.categorizers["base64"] = re.compile(BASE64)
         self.categorizers["pcomputer"] = re.compile(PCOMPUTER)
-        self.categorizers["user"] = re.compile(USER)
-        self.categorizers["domain"] = re.compile(DOMAIN)
         self.dataClass = []
 
     def reset(self):
         self.text = ""
         self.content = ""
         self.insertable = False
+        self.hasResult = False
         self.dataClass = []
 
     def process(self, text):
@@ -57,28 +64,48 @@ class DTSAnalyzer:
 
         print(f"[analyzer] analyzing `{text}`")
         self.text = text
+        self.insertable = True
         for type in self.categorizers:
             if self.categorizers[type].match(text):
                 print(f"[analyzer] matched with {type}")
                 self.dataClass.append(type)
-                self.insertable = True
-                break
+                self.hasResult = True
         self.lastText = text
 
-    def is_ip(self):
-        return any(item in self.dataClass for item in ["ipv4", "ipv6"])
+    def truefalse(self, fn, **kwargs) -> bool:
+        try:
+            return fn(self.text, **kwargs)
+        except Exception:
+            return False
 
-    def is_hash(self):
-        return any(item in self.dataClass for item in ["sha256", "sha1", "md5"])
+    def has_result(self):
+        return self.hasResult
+
+    def is_ip(self) -> bool:
+        return self.truefalse(validators.ipv4, cidr=False) or self.truefalse(validators.ipv6, cidr=False)
+
+    def is_hash(self) -> bool:
+        return (
+            self.truefalse(validators.md5)
+            or self.truefalse(validators.sha1)
+            or self.truefalse(validators.sha256)
+            or self.truefalse(validators.sha224)
+        )
+
+    def is_mac(self) -> bool:
+        return self.truefalse(validators.mac_address)
 
     def is_base64(self):
         return any(item in self.dataClass for item in ["base64"])
 
     def is_user(self):
         return any(item in self.dataClass for item in ["user"])
-    
+
     def is_pcomputer(self):
         return any(item in self.dataClass for item in ["pcomputer"])
-    
+
+    def is_url(self):
+        return self.truefalse(validators.url) or self.truefalse(validators.domain)
+
     def is_internal_ip(self):
         return self.is_ip() and ipaddress.ip_address(self.text).is_private is True

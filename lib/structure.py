@@ -30,50 +30,50 @@ class AbuseObject(BaseModel):
 
 
 class VTLastAnalysisStats(BaseModel):
-    harmless: int
-    type_unsupported: int = Field(..., alias="type-unsupported")
-    suspicious: int
-    confirmed_timeout: int = Field(..., alias="confirmed-timeout")
-    timeout: int
-    failure: int
-    malicious: int
-    undetected: int
+    harmless: int = 0
+    type_unsupported: Optional[int] = None  # Field(..., alias="type-unsupported")
+    suspicious: int = 0
+    confirmed_timeout: Optional[int] = None  # Field(..., alias="confirmed-timeout")
+    timeout: int = 0
+    failure: Optional[int] = None
+    malicious: int = 0
+    undetected: int = 0
 
 
 class VTAttributes(BaseModel):
-    type_description: str
-    tlsh: str
-    vhash: str
-    type_tags: List[str]
-    creation_date: int
-    names: List[str]
-    signature_info: dict
-    last_modification_date: int
-    type_tag: str
-    times_submitted: int
-    total_votes: dict
-    size: int
-    type_extension: str
-    authentihash: str
-    detectiteasy: dict
-    last_submission_date: int
-    meaningful_name: str
-    trid: List[dict]
+    type_description: Optional[str] = None
+    tlsh: Optional[str] = None
+    vhash: Optional[str] = None
+    type_tags: Optional[List[str]] = None
+    creation_date: Optional[int] = None
+    names: Optional[List[str]] = None
+    signature_info: Optional[dict] = None
+    last_modification_date: Optional[int] = None
+    type_tag: Optional[str] = None
+    times_submitted: Optional[int] = None
+    total_votes: Optional[dict] = None
+    size: Optional[int] = None
+    type_extension: Optional[str] = None
+    authentihash: Optional[str] = None
+    detectiteasy: Optional[dict] = None
+    last_submission_date: Optional[int] = None
+    meaningful_name: Optional[str] = None
+    trid: Optional[List[dict]] = None
     sandbox_verdicts: Optional[dict] = None
-    sha256: str
-    tags: List[str]
+    sha256: Optional[str] = None
+    tags: Optional[List[str]] = None
     last_analysis_date: int
-    unique_sources: int
-    first_submission_date: int
-    sha1: str
-    ssdeep: str
-    md5: str
-    pe_info: dict
-    magic: str
+    unique_sources: Optional[int] = None
+    first_submission_date: Optional[int] = None
+    sha1: Optional[str] = None
+    ssdeep: Optional[str] = None
+    md5: Optional[str] = None
+    pe_info: Optional[dict] = None
+    magic: Optional[str] = None
     last_analysis_stats: VTLastAnalysisStats
     last_analysis_results: dict
-    reputation: int
-    first_seen_itw_date: int
+    reputation: Optional[int] = None
+    first_seen_itw_date: Optional[int] = None
 
 
 class VTLinks(BaseModel):
@@ -125,7 +125,7 @@ class ShodanDns(BaseModel):
 
 
 class ShodanItem(BaseModel):
-    field_shodan: ShodanField = Field(..., alias='_shodan')
+    field_shodan: ShodanField = Field(..., alias="_shodan")
     hash: int
     os: Optional[str] = None
     opts: ShodanOpts

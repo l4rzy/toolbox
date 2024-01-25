@@ -4,11 +4,11 @@ class DTSConfig:
 
         self.defaultCfg = """
 [general]
-proxy_auth = insert_your_proxy_string_here
+proxy = insert_your_proxy_string_here
 [api]
 abuseipdb = insert_your_abuseipdb_api_key_here
 virustotal = insert_your_vt_api_key_here
-shodan = insert_your_shodan_api_key_here
+shodan = insert_your_shodan_api_key_here # currently not in use
 [ui]
 analyze_on_focus = 1
 iconify_on_escape = true

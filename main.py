@@ -14,7 +14,7 @@ import sys
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 1
-VERSION_PATCH = 0
+VERSION_PATCH = 3
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -116,11 +116,12 @@ class DTSHistory(CTkListbox):
         )
         self.currentPos = 0
         self.mainUI: DTSToolBox = mainUI
-        self.historyClick = False # workaround
+        self.historyClick = False  # workaround
 
     def cb_on_click(self, item):
         self.historyClick = True
         self.mainUI.cb_on_entry_update(text=item)
+        self.historyClick = False
 
     def append(self, target):
         if self.historyClick:
@@ -185,27 +186,53 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.label.configure(text="VirusTotal Report")
         try:
             firstResult = data.data[0].attributes
+            firstResultType = data.data[0].type
             assert isinstance(firstResult, VTAttributes)
         except IndexError:
-            self.render_exception("File not found!")
+            self.render_exception("Resource not found on VirusTotal!")
             return
         except Exception:
             self.render_exception("An unknown error happened!")
             return
 
-        magic = firstResult.magic
-        names = firstResult.names
         lastAnalysis = firstResult.last_analysis_stats
-        self.rateMeter.set(
-            lastAnalysis.malicious
-            * 100
-            / (lastAnalysis.malicious + lastAnalysis.undetected)
-        )
-        self.result.configure(
-            text=f"The file was marked by {lastAnalysis.malicious}/{lastAnalysis.malicious + lastAnalysis.undetected} vendors as malicious"
-        )
-        self.knownNames.set("Known names", ", ".join(names[:3]))
-        self.magicInfo.set("Magic", magic)
+        if firstResultType == "file":
+            magic = firstResult.magic
+            names = firstResult.names
+            totalVendors = (
+                lastAnalysis.malicious
+                + lastAnalysis.undetected
+                + lastAnalysis.harmless
+                + lastAnalysis.suspicious
+            )
+            self.rateMeter.set(lastAnalysis.malicious * 100 / totalVendors)
+            self.result.configure(
+                text=f"The {firstResultType} was marked by {lastAnalysis.malicious}/{totalVendors} vendors as malicious"
+            )
+
+            self.knownNames.set("Known names", ", ".join(names[:3]) if names is not None else "_")
+            self.magicInfo.set("Magic", magic)
+
+        elif firstResultType in ("domain", "url"):
+            totalVendors = (
+                lastAnalysis.malicious
+                + lastAnalysis.undetected
+                + lastAnalysis.harmless
+                + lastAnalysis.suspicious
+            )
+            self.rateMeter.set(lastAnalysis.malicious * 100 / totalVendors)
+            self.result.configure(
+                text=f"The {firstResultType} was marked by {lastAnalysis.malicious}/{totalVendors} vendors as malicious"
+            )
+            self.knownNames.set(
+                "Reputation",
+                f"{firstResult.reputation if firstResult.reputation is not None else ''}",
+            )
+            self.magicInfo.grid_remove()
+        else:
+            self.render_exception(
+                f"Unknown VirusTotal result type of `{firstResultType}`"
+            )
 
 
 class DTSAbuseIPDBReport(widget.CTkFrame):
@@ -369,7 +396,7 @@ class DTSTabView(widget.CTkTabview):
         self.textBoxData = widget.CTkTextbox(
             self.tab("Data"), font=widget.CTkFont(family="Consolas", size=14)
         )
-        self.textBoxData.insert("0.0", "Sorry I have nothing to show!\n" * 100)
+        self.textBoxData.insert("0.0", "Waiting for your requests!\n" * 10)
         self.textBoxData.grid(
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
@@ -391,8 +418,10 @@ class DTSTabView(widget.CTkTabview):
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
 
-        self.textBoxLog = widget.CTkTextbox(self.tab("Log"))
-        self.textBoxLog.insert("0.0", "Sorry I have nothing to show!\n" * 100)
+        self.textBoxLog = widget.CTkTextbox(
+            self.tab("Log"), font=widget.CTkFont(family="Consolas", size=14)
+        )
+        self.textBoxLog.insert("0.0", "I have nothing to show right now ¯\_(ツ)_/¯")
         self.textBoxLog.grid(
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
@@ -457,7 +486,7 @@ class DTSTabView(widget.CTkTabview):
             self.reports[source].populate(data)
             self.reportShowing = source
 
-        elif source == "base64":
+        elif source in ("base64", "dns", "rdns", "pcomputer", "mac", "localip"):
             if source not in self.reports:
                 self.reports[source] = DTSTextReport(self.tab("Auto"))
                 self.reports[source].grid(
@@ -465,14 +494,14 @@ class DTSTabView(widget.CTkTabview):
                 )
 
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", "Nothing to show here")
+            self.textBoxData.insert("0.0", "Nothing to show here ¯\_(ツ)_/¯")
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
             self.reportShowing = source
 
         else:
-            print(f"[ui] unknown source `{source}` with data = `{data}`")
+            print(f"[ui] can't render from `{source}` with data = `{data}`")
 
 
 """     
@@ -605,7 +634,7 @@ class DTSToolBox(widget.CTk):
             row=0, column=0, padx=6, pady=6, columnspan=1, rowspan=1, sticky="NEW"
         )
         self.tabView.grid(
-            row=1, column=0, padx=10, pady=0, columnspan=1, rowspan=1, sticky="SWEN"
+            row=1, column=0, padx=8, pady=8, columnspan=1, rowspan=1, sticky="SWEN"
         )
         self.drag_id = ""
 
@@ -637,8 +666,8 @@ class DTSToolBox(widget.CTk):
         ws = self.winfo_screenwidth()
         hs = self.winfo_screenheight()
 
-        x = (ws/2) - 320
-        y = (hs/2) - 160
+        x = (ws / 2) - 320
+        y = (hs / 2) - 160
         self.geometry(f"640x320+{int(x)}+{int(y)}")
 
     def bind_events(self):
@@ -701,7 +730,7 @@ class DTSToolBox(widget.CTk):
     def cb_on_focus(self, event):
         if event.widget != self or self.config.get("ui", "analyze_on_focus") == "0":
             return
-        
+
         try:
             clipboard = self.clipboard_get().strip()
         except Exception:
@@ -715,31 +744,44 @@ class DTSToolBox(widget.CTk):
 
     def cb_on_entry_update(self, event=None, text=""):
         if text == "":
-            text = self.searchBar.get()
+            text = self.searchBar.get().strip()
         self.analyzer.process(text)
-        
-        if self.analyzer.insertable:
-            self.clear_search_bar()
 
-        if self.analyzer.is_ip():
-            self.expectingDataId = uuid.uuid4().hex
+        # dispatch the work to worker
+        if self.analyzer.is_internal_ip():
             self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
+            self.worker.run(self.expectingDataId, ["localip"], self.analyzer.text)
+
+        elif self.analyzer.is_ip():
+            self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["abuseipdb"], self.analyzer.text)
 
-        elif self.analyzer.is_hash():
-            self.expectingDataId = uuid.uuid4()
+        elif self.analyzer.is_hash() or self.analyzer.is_url():
             self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["virustotal"], self.analyzer.text)
 
         elif self.analyzer.is_base64():
-            self.expectingDataId = uuid.uuid4()
             self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["base64"], self.analyzer.text)
 
         elif self.analyzer.is_user():
-            self.expectingDataId = uuid.uuid4().hex
             self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["netuser"], self.analyzer.text)
+
+        elif self.analyzer.is_pcomputer():
+            self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
+            self.worker.run(self.expectingDataId, ["pcomputer"], self.analyzer.text)
+
+        elif self.analyzer.is_mac():
+            self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
+            self.worker.run(self.expectingDataId, ["mac"], self.analyzer.text)
 
         else:
             self.tabView.stop_loading()

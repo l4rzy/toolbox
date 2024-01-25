@@ -4,6 +4,8 @@ import threading
 import pycurl
 from .util import resource_path
 from .structure import AbuseObject, VirusTotalObject, ShodanObject
+import ouilookup
+import ipaddress
 
 
 class CmdWrapper:
@@ -238,7 +240,9 @@ class DnsResolver:
             result = self.parse(response)
             self.ui.render(source="dns", box=(id, result))
 
-        t = threading.Thread(target=self.thread_fn, args=[id, hname, thread_callback, reverse])
+        t = threading.Thread(
+            target=self.thread_fn, args=[id, hname, thread_callback, reverse]
+        )
         t.daemon = True
         t.start()
 
@@ -269,6 +273,48 @@ class VirusTotal:
         self.curl.query(id, url, headers)
 
 
+class MacAddress:
+    def __init__(self, ui):
+        self.ui = ui
+        self.handle = ouilookup.OuiLookup()
+
+    def thread_fn(self, id, mac, callback):
+        try:
+            res = self.handle.query(mac)[0]
+        except Exception:
+            res = {f"{mac}": "Unknown"}
+        callback(id, res)
+
+    def query(self, id, mac):
+        def thread_callback(id, response):
+            vendor = 'Unknown'
+            for k, v in response.items():
+                vendor = v
+            message = f'Mac address {mac} indicates a network device from {vendor}'
+            self.ui.render(source="mac", box=(id, message))
+
+        t = threading.Thread(target=self.thread_fn, args=[id, mac, thread_callback])
+        t.daemon = True
+        t.start()
+
+
+class LocalIpLookup:
+    def __init__(self, ui):
+        self.ui = ui
+        self.db = {
+            "127.0.0.1/32": "your local machine",
+            "192.168.0.0/24": "Guest Wifi on floor 12 at 215 Gary St.",
+            "10.140.0.0/16": "MBGOV on suite 1200 215 Gary St.",
+        }
+
+    def query(self, id, ip):
+        res = f"Local IP {ip} not found in database!"
+        for subnet, place in self.db.items():
+            if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(subnet):
+                res = f'Local IP Address {ip} belongs to {subnet} @ {place}'
+        self.ui.render(source="localip", box=(id, res))
+
+
 class DTSWorker:
     def __init__(self, config, ui):
         self.isWorking = False
@@ -285,8 +331,11 @@ class DTSWorker:
         self.base64Decoder = Base64Decoder(ui=self.ui)
         # self.shodan = Shodan(apiKey=shodanAPIKey, ui=self.ui)
         self.dnsResolver = DnsResolver(ui=self.ui)
+        self.macAddressLookup = MacAddress(ui=self.ui)
+        self.localIpLookup = LocalIpLookup(ui=self.ui)
 
     def run(self, id, target={}, text=""):
+        print(f'[worker] trying to run {target} with target = `{text}`')
         for t in target:
             if t == "virustotal":
                 self.virusTotal.query(id, text)
@@ -298,5 +347,11 @@ class DTSWorker:
                 self.base64Decoder.query(id, text)
             elif t == "dns":
                 self.dnsResolver.query(id, text)
+            elif t == "rdns":
+                self.dnsResolver.query(id, text, reverse=True)
+            elif t == "mac":
+                self.macAddressLookup.query(id, text)
+            elif t == "localip":
+                self.localIpLookup.query(id, text)
             else:
                 pass
