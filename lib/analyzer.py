@@ -7,17 +7,19 @@ import validators
 # stolen from https://ihateregex.io/expr/ip/
 IPV4ADDR = r"\b((25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3})\b"
 IPV6ADDR = r"\b([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\b"
-IPV6ADDR2 = r"\b(?!^(?:(?:.*(?:::.*::|:::).*)|::|[0:]+[01]|.*[^:]:|[0-9a-fA-F](?:.*:.*){8}[0-9a-fA-F]|(?:[0-9a-fA-F]:){1,6}[0-9a-fA-F])$)^(?:(::|[0-9a-fA-F]{1,4}:{1,2})([0-9a-fA-F]{1,4}:{1,2}){0,6}([0-9a-fA-F]{1,4}|::)?)\b"
+IPV6ADDR2 = r"((?!^(?:(?:.*(?:::.*::|:::).*)|::|[0:]+[01]|.*[^:]:|[0-9a-fA-F](?:.*:.*){8}[0-9a-fA-F]|(?:[0-9a-fA-F]:){1,6}[0-9a-fA-F])$)^(?:(::|[0-9a-fA-F]{1,4}:{1,2})([0-9a-fA-F]{1,4}:{1,2}){0,6}([0-9a-fA-F]{1,4}|::)?))"
 
 SHA256HASH = r"\b([a-fA-F0-9]{64})\b"
 SHA1HASH = r"\b([a-fA-F0-9]{40})\b"
 MD5HASH = r"\b([a-fA-F0-9]{32})\b"
 
+# MACADDR = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
+
 PCOMPUTER = r"((GOMC|gomc)\-[0-9]{7})"
 
 URL = r"(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*))"
 
-BASE64 = (
+BASE64 = re.compile(
     r"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$"
 )
 
@@ -41,12 +43,7 @@ class DTSAnalyzer:
         self.config = config
 
         self.lastText = ""
-        self.text = ""
-
-        self.insertable = False
-        self.hasResult = False
-        self.isComplex = False
-        self.total = 0
+        self.reset()
 
         self.categorizers = {}
         self.categorizers["ipv4"] = re.compile(IPV4ADDR)
@@ -54,14 +51,14 @@ class DTSAnalyzer:
         self.categorizers["sha256"] = re.compile(SHA256HASH)
         self.categorizers["sha1"] = re.compile(SHA1HASH)
         self.categorizers["md5"] = re.compile(MD5HASH)
+        self.categorizers["url"] = re.compile(URL)
         self.categorizers["pcomputer"] = re.compile(PCOMPUTER)
-
-        self.dataClass = {}
 
     def reset(self):
         self.text = ""
+        self.content = ""
+        self.total = 0
         self.insertable = False
-        self.hasResult = False
         self.isComplex = False
         self.dataClass = {}
 
@@ -76,14 +73,13 @@ class DTSAnalyzer:
 
         print(f"[analyzer] analyzing `{text}`")
         self.text = text
-        self.insertable = True
         self.total = 0
+        lastOne = ""
         for type in self.categorizers:
-            print(type)
             occurences = re.finditer(self.categorizers[type], self.text)
             occurences = [o[0] for o in occurences]
-            print(occurences)
             if occurences != []:
+                lastOne = occurences[0]
                 self.total += len(occurences)
                 self.dataClass[type] = occurences
         self.lastText = text
@@ -91,10 +87,15 @@ class DTSAnalyzer:
         if self.total > 1:
             self.isComplex = True
             print(f"[analyzer] complex input: {self.dataClass}")
+        elif self.total == 1:
+            self.content = lastOne
+            self.insertable = True
+        else:
+            self.content = self.text
 
     def truefalse(self, fn, **kwargs) -> bool:
         try:
-            return fn(self.text, **kwargs)
+            return fn(self.content, **kwargs)
         except Exception:
             return False
 
@@ -118,7 +119,7 @@ class DTSAnalyzer:
         return self.truefalse(validators.mac_address)
 
     def is_base64(self):
-        return any(item in self.dataClass for item in ["base64"])
+        return BASE64.match(self.text)
 
     def is_user(self):
         return any(item in self.dataClass for item in ["user"])
@@ -130,4 +131,4 @@ class DTSAnalyzer:
         return self.truefalse(validators.url) or self.truefalse(validators.domain)
 
     def is_internal_ip(self):
-        return self.is_ip() and ipaddress.ip_address(self.text).is_private is True
+        return self.is_ip() and ipaddress.ip_address(self.content).is_private is True

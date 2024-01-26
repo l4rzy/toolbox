@@ -1,8 +1,9 @@
 import io
+
 try:
     import simdjson
 except Exception:
-    print('[worker] falling back to vanilla cpython json')
+    print("[worker] falling back to vanilla cpython json")
     import json as simdjson
 import threading
 import pycurl
@@ -242,6 +243,8 @@ class DnsResolver:
     def query(self, id, hname, reverse=False):
         def thread_callback(id, response):
             result = self.parse(response)
+            if result == "":
+                result = f"{hname} was not resolvable."
             self.ui.render(source="dns", box=(id, result))
 
         t = threading.Thread(
@@ -291,10 +294,10 @@ class MacAddress:
 
     def query(self, id, mac):
         def thread_callback(id, response):
-            vendor = 'Unknown'
+            vendor = "Unknown"
             for k, v in response.items():
                 vendor = v
-            message = f'Mac address {mac} indicates a network device from {vendor}'
+            message = f"Mac address {mac} indicates a network device from {vendor}"
             self.ui.render(source="mac", box=(id, message))
 
         t = threading.Thread(target=self.thread_fn, args=[id, mac, thread_callback])
@@ -315,8 +318,34 @@ class LocalIpLookup:
         res = f"Local IP {ip} not found in database!"
         for subnet, place in self.db.items():
             if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(subnet):
-                res = f'Local IP Address {ip} belongs to {subnet} @ {place}'
+                res = f"Local IP Address {ip} belongs to {subnet} @ {place}"
         self.ui.render(source="localip", box=(id, res))
+
+
+class TesserOCR:
+    def __init__(self, ui):
+        from tesserocr import PyTessBaseAPI
+
+        self.ui = ui
+        self.api = PyTessBaseAPI(path=resource_path("data"))
+
+    def thread_fn(self, id, img, callback):
+        try:
+            self.api.SetImage(img)
+            res = self.api.GetUTF8Text()
+        except Exception:
+            res = ""
+        callback(id, res)
+
+    def query(self, id, img):
+        def thread_callback(id, response):
+            if response == "":
+                response = "No text found in the image"
+            self.ui.render(source="ocr", box=(id, response))
+
+        t = threading.Thread(target=self.thread_fn, args=[id, img, thread_callback])
+        t.daemon = True
+        t.start()
 
 
 class DTSWorker:
@@ -336,9 +365,10 @@ class DTSWorker:
         # self.shodan = Shodan(apiKey=shodanAPIKey, ui=self.ui)
         self.dnsResolver = DnsResolver(ui=self.ui)
         self.macAddressLookup = MacAddress(ui=self.ui)
+        self.ocrApi = TesserOCR(ui=self.ui)
 
-    def run(self, id, target={}, text=""):
-        print(f'[worker] trying to run {target} with target = `{text}`')
+    def run(self, id, target={}, text="", img=None):
+        print(f"[worker] trying to run {target} with target = `{text}`")
         for t in target:
             if t == "virustotal":
                 self.virusTotal.query(id, text)
@@ -354,5 +384,7 @@ class DTSWorker:
                 self.dnsResolver.query(id, text, reverse=True)
             elif t == "mac":
                 self.macAddressLookup.query(id, text)
+            elif t == "ocr":
+                self.ocrApi.query(id, img)
             else:
                 pass

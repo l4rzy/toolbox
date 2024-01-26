@@ -11,7 +11,7 @@ from lib.util import resource_path
 from lib.structure import AbuseObject, VirusTotalObject, VTAttributes
 import signal
 import sys
-from PIL import Image
+from PIL import Image, ImageGrab
 import secrets
 
 VERSION_MAJOR = 0
@@ -172,19 +172,23 @@ class DTSGenericReport(widget.CTkFrame):
             self, text="Report", font=widget.CTkFont(size=18, weight="bold")
         )
         self.label = widget.CTkLabel(self, text="Which one should I analyze?")
+        self.title.grid(row=0, column=0, padx=4, pady=10)
+        self.label.grid(row=1, column=0, padx=4, pady=5)
+        self.entries = []
+        self.row = 2
         self.reset()
 
     def reset(self):
-        self.entries = []  # let gc handle the rest
         self.row = 2
+        for e in self.entries:
+            e.destroy()
+
+        self.entries = []
 
     def populate(self, data):
-        self.title.grid(row=0, column=0, padx=4, pady=10)
-        self.label.grid(row=1, column=0, padx=4, pady=5)
-
         for type in data:
             for entry in set(data[type]):
-                e = DTSLabelWithBtn(self, copy_btn=False, analyze_btn=True)
+                e = DTSLabelWithBtn(self, copy_btn=True, analyze_btn=True)
                 e.set(label=type, content=entry)
                 e.grid(row=self.row, column=0, padx=4, pady=10)
                 self.entries.append(e)
@@ -717,11 +721,11 @@ class DTSToolBox(widget.CTk):
         self.searchBar.delete(0, len(self.searchBar.get()))
 
     def set_search_bar(self):
-        self.tabView.update_history(self.analyzer.text)
+        self.tabView.update_history(self.analyzer.content)
         if self.searchBar.get() == self.analyzer.text:
             return
         self.clear_search_bar()
-        self.searchBar.insert(0, self.analyzer.text)
+        self.searchBar.insert(0, self.analyzer.content)
 
     def setup_geometry(self):
         self.minsize(640, 320)
@@ -752,7 +756,7 @@ class DTSToolBox(widget.CTk):
         print(f"[ui] data received from {source}")
         (id, data) = box
         if id == self.expectingDataId:
-            if self.analyzer.insertable:
+            if self.analyzer.insertable and not self.analyzer.isComplex:
                 self.set_search_bar()
             self.tabView.render_from_worker(source, data)
         else:
@@ -798,6 +802,13 @@ class DTSToolBox(widget.CTk):
         if event.widget != self or self.config.get("ui", "analyze_on_focus") == "0":
             return
 
+        clipboardImg = ImageGrab.grabclipboard()
+        if clipboardImg is not None:
+            self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
+            self.worker.run(self.expectingDataId, ["ocr"], img=clipboardImg)
+            return
+
         try:
             clipboard = self.clipboard_get().strip()
         except Exception:
@@ -813,7 +824,6 @@ class DTSToolBox(widget.CTk):
         if text == "":
             text = self.searchBar.get().strip()
         self.analyzer.process(text)
-        self.tabView.update_from_analyzer(self.analyzer)
 
         if not self.analyzer.isComplex:
             self.dispatch_work()
@@ -830,32 +840,39 @@ class DTSToolBox(widget.CTk):
     def dispatch_work(self):
         # dispatch the work to worker
         if self.analyzer.is_internal_ip():
+            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
-            self.worker.run(self.expectingDataId, ["rdns"], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["rdns"], self.analyzer.content)
 
         elif self.analyzer.is_ip():
+            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
-            self.worker.run(self.expectingDataId, ["abuseipdb"], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["abuseipdb"], self.analyzer.content)
 
         elif self.analyzer.is_hash() or self.analyzer.is_url():
+            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
-            self.worker.run(self.expectingDataId, ["virustotal"], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["virustotal"], self.analyzer.content)
 
         elif self.analyzer.is_base64():
+            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
-            self.worker.run(self.expectingDataId, ["base64"], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["base64"], self.analyzer.content)
 
         elif self.analyzer.is_user():
+            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
-            self.worker.run(self.expectingDataId, ["netuser"], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["netuser"], self.analyzer.content)
 
         elif self.analyzer.is_pcomputer():
+            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
-            self.worker.run(self.expectingDataId, ["pcomputer"], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["dns"], self.analyzer.content)
 
         elif self.analyzer.is_mac():
+            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
-            self.worker.run(self.expectingDataId, ["mac"], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["mac"], self.analyzer.content)
 
         else:
             self.tabView.stop_loading()

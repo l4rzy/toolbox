@@ -1,10 +1,12 @@
+import configparser
+
 class DTSConfig:
     def __init__(self, configFile="config.ini"):
-        import configparser
 
         self.defaultCfg = """
 [general]
 proxy = insert_your_proxy_string_here
+ocr = true
 [api]
 abuseipdb = insert_your_abuseipdb_api_key_here
 virustotal = insert_your_vt_api_key_here
