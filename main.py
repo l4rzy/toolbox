@@ -108,7 +108,9 @@ class DTSLabelWithBtn(widget.CTkFrame):
         import webbrowser
 
         # todo: fix this
-        webbrowser.open_new_tab(f"https://www.google.com/search?q={self.content}")
+        webbrowser.open_new_tab(
+            f"https://www.google.com/search?q={self.content.cget('text')}"
+        )
 
     def cb_on_analyze_btn_click(self, event):
         # bad code, but since tkinter doesnt allow event from child to parent
@@ -202,8 +204,11 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.label = widget.CTkLabel(
+        self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
+        )
+        self.label = widget.CTkLabel(
+            self, justify="center", font=widget.CTkFont(size=14)
         )
         self.result = widget.CTkLabel(self, justify="center")
         self.rateMeter = Meter(
@@ -234,20 +239,23 @@ class DTSVirusTotalReport(widget.CTkFrame):
     def render_exception(self, message):
         self.rateMeter.set(0)
         self.result.configure(text=message)
+        self.label.configure(text="Error happened!")
         self.knownNames.grid_remove()
         self.magicInfo.grid_remove()
 
     def populate(self, data: VirusTotalObject):
-        self.label.grid(row=0, column=0, padx=4, pady=2)
-        self.rateMeter.grid(row=1, column=0, padx=10, pady=20)
-        self.result.grid(row=2, column=0, padx=4, pady=2)
-        self.knownNames.grid(row=3, column=0, padx=4, pady=2)
-        self.magicInfo.grid(row=4, column=0, padx=4, pady=2)
+        self.title.grid(row=0, column=0, padx=4, pady=2)
+        self.label.grid(row=1, column=0, padx=4, pady=2)
+        self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
+        self.result.grid(row=3, column=0, padx=4, pady=2)
+        self.knownNames.grid(row=4, column=0, padx=4, pady=2)
+        self.magicInfo.grid(row=5, column=0, padx=4, pady=2)
 
-        self.label.configure(text="VirusTotal Report")
+        self.title.configure(text="VirusTotal Report")
         try:
             firstResult = data.data[0].attributes
             firstResultType = data.data[0].type
+            self.label.configure(text=f"for {data.data[0].type}: {data.data[0].id}")
             assert isinstance(firstResult, VTAttributes)
         except IndexError:
             self.render_exception("Resource not found on VirusTotal!")
@@ -305,8 +313,11 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.label = widget.CTkLabel(
+        self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
+        )
+        self.label = widget.CTkLabel(
+            self, justify="center", font=widget.CTkFont(size=14)
         )
         self.result = widget.CTkLabel(self, justify="center")
         self.rateMeter = Meter(
@@ -338,15 +349,17 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         # self.hostnames = CTkTable(self, column=2)
 
     def populate(self, data: AbuseObject):
-        self.label.grid(row=0, column=0, padx=4, pady=2)
-        self.rateMeter.grid(row=1, column=0, padx=10, pady=20)
-        self.result.grid(row=2, column=0, padx=4, pady=2)
-        self.isp.grid(row=3, column=0)
-        self.usageType.grid(row=4, column=0)
-        self.domain.grid(row=5, column=0)
-        self.country.grid(row=6, column=0)
+        self.title.grid(row=0, column=0, padx=4, pady=2)
+        self.label.grid(row=1, column=0, padx=4, pady=2)
+        self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
+        self.result.grid(row=3, column=0, padx=4, pady=2)
+        self.isp.grid(row=4, column=0)
+        self.usageType.grid(row=5, column=0)
+        self.domain.grid(row=6, column=0)
+        self.country.grid(row=7, column=0)
 
-        self.label.configure(text=f"Result for {data.data.ipAddress}")
+        self.title.configure(text="AbuseIPDB Report")
+        self.label.configure(text=f"for {data.data.ipAddress}")
         if not data.data.isPublic:
             self.result.configure(text="This IP is a private IP")
             self.rateMeter.set(data.data.abuseConfidenceScore)
@@ -810,10 +823,10 @@ class DTSToolBox(widget.CTk):
         clipboardImg = ImageGrab.grabclipboard()
         if (self.lastImage is None) or (
             clipboardImg is not None
-            and clipboardImg.size != self.lastImage.size # workaround
+            and clipboardImg.size != self.lastImage.size  # workaround
         ):
             self.lastImage = clipboardImg
-            #self.tabView.update_from_analyzer(self.analyzer)
+            # self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["ocr"], img=clipboardImg)
             return
