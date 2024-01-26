@@ -716,6 +716,7 @@ class DTSToolBox(widget.CTk):
         self.worker = DTSWorker(self.config, self)
         ## internal states
         self.expectingDataId: str = ""
+        self.lastImage = None
 
     def clear_search_bar(self):
         self.searchBar.delete(0, len(self.searchBar.get()))
@@ -756,6 +757,10 @@ class DTSToolBox(widget.CTk):
         print(f"[ui] data received from {source}")
         (id, data) = box
         if id == self.expectingDataId:
+            if source == "ocr":
+                if data is not None:
+                    self.cb_on_entry_update(text=data)
+                return
             if self.analyzer.insertable and not self.analyzer.isComplex:
                 self.set_search_bar()
             self.tabView.render_from_worker(source, data)
@@ -803,8 +808,12 @@ class DTSToolBox(widget.CTk):
             return
 
         clipboardImg = ImageGrab.grabclipboard()
-        if clipboardImg is not None:
-            self.tabView.update_from_analyzer(self.analyzer)
+        if (self.lastImage is None) or (
+            clipboardImg is not None
+            and clipboardImg.size != self.lastImage.size # workaround
+        ):
+            self.lastImage = clipboardImg
+            #self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["ocr"], img=clipboardImg)
             return

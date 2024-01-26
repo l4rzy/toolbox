@@ -340,7 +340,7 @@ class TesserOCR:
     def query(self, id, img):
         def thread_callback(id, response):
             if response == "":
-                response = "No text found in the image"
+                response = None
             self.ui.render(source="ocr", box=(id, response))
 
         t = threading.Thread(target=self.thread_fn, args=[id, img, thread_callback])
