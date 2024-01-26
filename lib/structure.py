@@ -26,9 +26,6 @@ class AbuseObject(BaseModel):
     data: AbuseDataObject
 
 
-# ==============================#
-
-
 class VTLastAnalysisStats(BaseModel):
     harmless: int = 0
     type_unsupported: Optional[int] = None  # Field(..., alias="type-unsupported")
@@ -62,7 +59,7 @@ class VTAttributes(BaseModel):
     sandbox_verdicts: Optional[dict] = None
     sha256: Optional[str] = None
     tags: Optional[List[str]] = None
-    last_analysis_date: int
+    last_analysis_date: Optional[int] = None
     unique_sources: Optional[int] = None
     first_submission_date: Optional[int] = None
     sha1: Optional[str] = None
@@ -70,8 +67,8 @@ class VTAttributes(BaseModel):
     md5: Optional[str] = None
     pe_info: Optional[dict] = None
     magic: Optional[str] = None
-    last_analysis_stats: VTLastAnalysisStats
-    last_analysis_results: dict
+    last_analysis_stats: Optional[VTLastAnalysisStats] = None
+    last_analysis_results: Optional[dict] = None
     reputation: Optional[int] = None
     first_seen_itw_date: Optional[int] = None
 
@@ -82,8 +79,8 @@ class VTLinks(BaseModel):
 
 class VTItem(BaseModel):
     attributes: VTAttributes
-    type: str
-    id: str
+    type: Optional[str] = None
+    id: Optional[str] = None
     links: VTLinks
 
 

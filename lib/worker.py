@@ -1,5 +1,9 @@
 import io
-import simdjson
+try:
+    import simdjson
+except Exception:
+    print('[worker] falling back to vanilla cpython json')
+    import json as simdjson
 import threading
 import pycurl
 from .util import resource_path
@@ -321,18 +325,17 @@ class DTSWorker:
         self.config = config
         self.ui = ui
 
-        virusTotalAPI = self.config.get("api", "virustotal")
-        abuseIPDBAPI = self.config.get("api", "abuseipdb")
+        virusTotalKey = self.config.get("api", "virustotal")
+        abuseIPDBKey = self.config.get("api", "abuseipdb")
         # shodanAPIKey = self.config.get("api", "shodan")
 
-        self.virusTotal = VirusTotal(apiKey=virusTotalAPI, ui=self.ui)
-        self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBAPI, ui=self.ui)
+        self.virusTotal = VirusTotal(apiKey=virusTotalKey, ui=self.ui)
+        self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBKey, ui=self.ui)
         self.netUser = NetUser(ui=self.ui)
         self.base64Decoder = Base64Decoder(ui=self.ui)
         # self.shodan = Shodan(apiKey=shodanAPIKey, ui=self.ui)
         self.dnsResolver = DnsResolver(ui=self.ui)
         self.macAddressLookup = MacAddress(ui=self.ui)
-        self.localIpLookup = LocalIpLookup(ui=self.ui)
 
     def run(self, id, target={}, text=""):
         print(f'[worker] trying to run {target} with target = `{text}`')
@@ -351,7 +354,5 @@ class DTSWorker:
                 self.dnsResolver.query(id, text, reverse=True)
             elif t == "mac":
                 self.macAddressLookup.query(id, text)
-            elif t == "localip":
-                self.localIpLookup.query(id, text)
             else:
                 pass

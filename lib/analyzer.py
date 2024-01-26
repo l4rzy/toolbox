@@ -5,14 +5,17 @@ import ipaddress
 import validators
 
 # stolen from https://ihateregex.io/expr/ip/
-IPV4ADDR = r"(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}"
-IPV6ADDR = r"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
+IPV4ADDR = r"\b((25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3})\b"
+IPV6ADDR = r"\b([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\b"
+IPV6ADDR2 = r"\b(?!^(?:(?:.*(?:::.*::|:::).*)|::|[0:]+[01]|.*[^:]:|[0-9a-fA-F](?:.*:.*){8}[0-9a-fA-F]|(?:[0-9a-fA-F]:){1,6}[0-9a-fA-F])$)^(?:(::|[0-9a-fA-F]{1,4}:{1,2})([0-9a-fA-F]{1,4}:{1,2}){0,6}([0-9a-fA-F]{1,4}|::)?)\b"
 
 SHA256HASH = r"\b([a-fA-F0-9]{64})\b"
 SHA1HASH = r"\b([a-fA-F0-9]{40})\b"
 MD5HASH = r"\b([a-fA-F0-9]{32})\b"
 
-PCOMPUTER = r"\b(GOMC|gomc)\-[0-9]{7}\b"
+PCOMPUTER = r"((GOMC|gomc)\-[0-9]{7})"
+
+URL = r"(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*))"
 
 BASE64 = (
     r"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$"
@@ -36,22 +39,31 @@ class DataClass(Enum):
 class DTSAnalyzer:
     def __init__(self, config: DTSConfig = None):
         self.config = config
+
         self.lastText = ""
         self.text = ""
-        self.content = ""
+
         self.insertable = False
         self.hasResult = False
+        self.isComplex = False
+        self.total = 0
+
         self.categorizers = {}
-        self.categorizers["base64"] = re.compile(BASE64)
+        self.categorizers["ipv4"] = re.compile(IPV4ADDR)
+        self.categorizers["ipv6"] = re.compile(IPV6ADDR2)
+        self.categorizers["sha256"] = re.compile(SHA256HASH)
+        self.categorizers["sha1"] = re.compile(SHA1HASH)
+        self.categorizers["md5"] = re.compile(MD5HASH)
         self.categorizers["pcomputer"] = re.compile(PCOMPUTER)
-        self.dataClass = []
+
+        self.dataClass = {}
 
     def reset(self):
         self.text = ""
-        self.content = ""
         self.insertable = False
         self.hasResult = False
-        self.dataClass = []
+        self.isComplex = False
+        self.dataClass = {}
 
     def process(self, text):
         self.reset()
@@ -65,12 +77,20 @@ class DTSAnalyzer:
         print(f"[analyzer] analyzing `{text}`")
         self.text = text
         self.insertable = True
+        self.total = 0
         for type in self.categorizers:
-            if self.categorizers[type].match(text):
-                print(f"[analyzer] matched with {type}")
-                self.dataClass.append(type)
-                self.hasResult = True
+            print(type)
+            occurences = re.finditer(self.categorizers[type], self.text)
+            occurences = [o[0] for o in occurences]
+            print(occurences)
+            if occurences != []:
+                self.total += len(occurences)
+                self.dataClass[type] = occurences
         self.lastText = text
+
+        if self.total > 1:
+            self.isComplex = True
+            print(f"[analyzer] complex input: {self.dataClass}")
 
     def truefalse(self, fn, **kwargs) -> bool:
         try:
@@ -82,7 +102,9 @@ class DTSAnalyzer:
         return self.hasResult
 
     def is_ip(self) -> bool:
-        return self.truefalse(validators.ipv4, cidr=False) or self.truefalse(validators.ipv6, cidr=False)
+        return self.truefalse(validators.ipv4, cidr=False) or self.truefalse(
+            validators.ipv6, cidr=False
+        )
 
     def is_hash(self) -> bool:
         return (

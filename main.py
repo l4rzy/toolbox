@@ -11,6 +11,8 @@ from lib.util import resource_path
 from lib.structure import AbuseObject, VirusTotalObject, VTAttributes
 import signal
 import sys
+from PIL import Image
+import secrets
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 1
@@ -29,7 +31,15 @@ signal.signal(signal.SIGINT, sigint_handler)
 
 
 class DTSLabelWithBtn(widget.CTkFrame):
-    def __init__(self, master, web_btn=False, copy_btn=True, max_width=400, **kwargs):
+    def __init__(
+        self,
+        master,
+        web_btn=False,
+        copy_btn=True,
+        analyze_btn=False,
+        max_width=400,
+        **kwargs,
+    ):
         super().__init__(master, **kwargs)
         self.label = ttk.Label(
             self,
@@ -47,7 +57,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
         )
         self.cbtn = None
         self.wbtn = None
-        from PIL import Image
+        self.abtn = None
 
         if copy_btn:
             icpy = Image.open(resource_path("lib\\copy.png"))
@@ -67,6 +77,17 @@ class DTSLabelWithBtn(widget.CTkFrame):
                 height=20,
                 image=widget.CTkImage(dark_image=iweb, light_image=iweb, size=(15, 15)),
             )
+        if analyze_btn:
+            ianalyze = Image.open(resource_path("lib\\analyze.png"))
+            self.abtn = widget.CTkButton(
+                self,
+                text="",
+                width=30,
+                height=20,
+                image=widget.CTkImage(
+                    dark_image=ianalyze, light_image=ianalyze, size=(15, 15)
+                ),
+            )
 
         self.label.grid(column=0, row=0, padx=2, pady=4)
         self.content.grid(column=1, row=0, padx=2, pady=4)
@@ -76,6 +97,8 @@ class DTSLabelWithBtn(widget.CTkFrame):
             self.cbtn.bind("<Button-1>", self.cb_on_copy_btn_click)
         if web_btn:
             self.wbtn.bind("<Button-1>", self.cb_on_web_btn_click)
+        if analyze_btn:
+            self.abtn.bind("<Button-1>", self.cb_on_analyze_btn_click)
 
     def cb_on_copy_btn_click(self, event):
         self.clipboard_clear()
@@ -83,10 +106,14 @@ class DTSLabelWithBtn(widget.CTkFrame):
 
     def cb_on_web_btn_click(self, event):
         import webbrowser
-        import urllib.parse
 
-        webbrowser.open_new_tab(
-            urllib.parse.quote(f"https://www.google.com/search?q={self.content}")
+        # todo: fix this
+        webbrowser.open_new_tab(f"https://www.google.com/search?q={self.content}")
+
+    def cb_on_analyze_btn_click(self, event):
+        # bad code, but since tkinter doesnt allow event from child to parent
+        self.master.master.master.master.cb_on_entry_update(
+            text=self.content.cget("text")
         )
 
     def set(self, label, content):
@@ -98,6 +125,9 @@ class DTSLabelWithBtn(widget.CTkFrame):
         if self.wbtn:
             self.wbtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
             self.currentCol += 1
+        if self.abtn:
+            self.abtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
+            self.currentCol += 1
 
     def clear(self):
         self.label.configure(text="")
@@ -106,6 +136,8 @@ class DTSLabelWithBtn(widget.CTkFrame):
             self.cbtn.grid_remove()
         if self.wbtn:
             self.wbtn.grid_remove()
+        if self.abtn:
+            self.abtn.grid_remove()
 
 
 class DTSHistory(CTkListbox):
@@ -123,7 +155,7 @@ class DTSHistory(CTkListbox):
         self.mainUI.cb_on_entry_update(text=item)
         self.historyClick = False
 
-    def append(self, target):
+    def append(self, target, longText=False):
         if self.historyClick:
             return
         self.insert(self.currentPos, target)
@@ -131,7 +163,32 @@ class DTSHistory(CTkListbox):
 
 
 class DTSGenericReport(widget.CTkFrame):
-    pass
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        self.grid_columnconfigure(0, weight=1)
+        # self.grid_rowconfigure(0, weight=1)
+        self.title = widget.CTkLabel(
+            self, text="Report", font=widget.CTkFont(size=18, weight="bold")
+        )
+        self.label = widget.CTkLabel(self, text="Which one should I analyze?")
+        self.reset()
+
+    def reset(self):
+        self.entries = []  # let gc handle the rest
+        self.row = 2
+
+    def populate(self, data):
+        self.title.grid(row=0, column=0, padx=4, pady=10)
+        self.label.grid(row=1, column=0, padx=4, pady=5)
+
+        for type in data:
+            for entry in set(data[type]):
+                e = DTSLabelWithBtn(self, copy_btn=False, analyze_btn=True)
+                e.set(label=type, content=entry)
+                e.grid(row=self.row, column=0, padx=4, pady=10)
+                self.entries.append(e)
+                self.row += 1
 
 
 class DTSVirusTotalReport(widget.CTkFrame):
@@ -210,7 +267,9 @@ class DTSVirusTotalReport(widget.CTkFrame):
                 text=f"The {firstResultType} was marked by {lastAnalysis.malicious}/{totalVendors} vendors as malicious"
             )
 
-            self.knownNames.set("Known names", ", ".join(names[:3]) if names is not None else "_")
+            self.knownNames.set(
+                "Known names", ", ".join(names[:3]) if names is not None else "_"
+            )
             self.magicInfo.set("Magic", magic)
 
         elif firstResultType in ("domain", "url"):
@@ -359,8 +418,19 @@ class DTSLoading(widget.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        self.loadingText = (
+            "Loading",
+            "Thinking",
+            "Munching bits",
+            "Hang in there",
+            "Establishing network connection",
+            "Hmm let's see",
+        )
+
         self.loading = widget.CTkLabel(
-            self, text="Loading ...", font=widget.CTkFont(size=18)
+            self,
+            text=f"{secrets.choice(self.loadingText)} ...",
+            font=widget.CTkFont(size=18),
         )
 
         self.loading.grid(
@@ -371,6 +441,7 @@ class DTSLoading(widget.CTkFrame):
         self.grid_forget()
 
     def show(self):
+        self.loading.configure(text=f"{secrets.choice(self.loadingText)} ...")
         self.grid(
             row=0, column=0, padx=5, pady=10, columnspan=1, rowspan=1, sticky="SWEN"
         )
@@ -379,7 +450,7 @@ class DTSLoading(widget.CTkFrame):
 class DTSTabView(widget.CTkTabview):
     def __init__(self, master, config=None, **kwargs):
         super().__init__(master, **kwargs)
-        self.tabNames = ["Auto", "Data", "History", "Log", "Preferences"]
+        self.tabNames = ["Report", "Data", "History", "Log", "Preferences"]
         self.reports = {}
         self.reportShowing = ""
         self.config = config
@@ -387,11 +458,11 @@ class DTSTabView(widget.CTkTabview):
         for name in self.tabNames:
             self.add(name)
 
-        self.loading = DTSLoading(self.tab("Auto"))
+        self.loading = DTSLoading(self.tab("Report"))
         self.tab("Data").grid_columnconfigure(0, weight=1)
         self.tab("Data").grid_rowconfigure(0, weight=1)
 
-        self.tab("Auto").grid_columnconfigure(0, weight=1)
+        self.tab("Report").grid_columnconfigure(0, weight=1)
 
         self.textBoxData = widget.CTkTextbox(
             self.tab("Data"), font=widget.CTkFont(family="Consolas", size=14)
@@ -452,7 +523,7 @@ class DTSTabView(widget.CTkTabview):
         )
 
     def update_from_analyzer(self, analyzer: DTSAnalyzer):
-        self.set("Auto")
+        self.set("Report")
         self.start_loading()
 
     def render_from_worker(self, source, data):
@@ -460,7 +531,7 @@ class DTSTabView(widget.CTkTabview):
         # todo: factoring out common code patterns
         if source == "abuseipdb":
             if source not in self.reports:
-                self.reports[source] = DTSAbuseIPDBReport(self.tab("Auto"))
+                self.reports[source] = DTSAbuseIPDBReport(self.tab("Report"))
                 self.reports[source].grid(
                     row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
                 )
@@ -474,7 +545,7 @@ class DTSTabView(widget.CTkTabview):
 
         elif source == "virustotal":
             if source not in self.reports:
-                self.reports[source] = DTSVirusTotalReport(self.tab("Auto"))
+                self.reports[source] = DTSVirusTotalReport(self.tab("Report"))
                 self.reports[source].grid(
                     row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
                 )
@@ -486,9 +557,9 @@ class DTSTabView(widget.CTkTabview):
             self.reports[source].populate(data)
             self.reportShowing = source
 
-        elif source in ("base64", "dns", "rdns", "pcomputer", "mac", "localip"):
+        elif source in ("base64", "dns", "rdns", "pcomputer", "mac"):
             if source not in self.reports:
-                self.reports[source] = DTSTextReport(self.tab("Auto"))
+                self.reports[source] = DTSTextReport(self.tab("Report"))
                 self.reports[source].grid(
                     row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
                 )
@@ -500,28 +571,24 @@ class DTSTabView(widget.CTkTabview):
             self.reports[source].populate(data)
             self.reportShowing = source
 
+        elif source == "analyzer":
+            if source not in self.reports:
+                self.reports[source] = DTSGenericReport(self.tab("Report"))
+                self.reports[source].grid(
+                    row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
+                )
+
+            (items, rawText) = data
+            self.textBoxData.delete("0.0", "end")
+            self.textBoxData.insert("0.0", rawText)
+
+            self.hide_other_reports(except_for=source)
+            self.reports[source].reset()
+            self.reports[source].populate(items)
+            self.reportShowing = source
+
         else:
             print(f"[ui] can't render from `{source}` with data = `{data}`")
-
-
-"""     
-        DATA = {
-            "Data": [
-                {"Name": "Tom", "Rollno": 1, "Marks": 50},
-                {"Name": "Tim", "Rollno": 2, "Marks": 40},
-                {"Name": "Jim", "Rollno": 3, "Marks": 60}
-            ]
-        }
-
-        treeview = ttk.Treeview(self.tab('History'), show="headings", columns=("Name", "Rollno", "Marks"))
-        treeview.heading("#1", text="Name")
-        treeview.heading("#2", text="Rollno")
-        treeview.heading("#3", text="Marks")
-        treeview.grid()
-
-        for row in DATA["Data"]:
-            treeview.insert("", "end", values=(row["Name"], row["Rollno"], row["Marks"]))
-"""
 
 
 class DTSPreferencesGeneral(widget.CTkFrame):
@@ -746,40 +813,47 @@ class DTSToolBox(widget.CTk):
         if text == "":
             text = self.searchBar.get().strip()
         self.analyzer.process(text)
+        self.tabView.update_from_analyzer(self.analyzer)
 
+        if not self.analyzer.isComplex:
+            self.dispatch_work()
+        else:
+            self.expectingDataId = uuid.uuid4().hex
+            self.render(
+                source="analyzer",
+                box=(
+                    self.expectingDataId,
+                    (self.analyzer.dataClass, self.analyzer.text),
+                ),
+            )
+
+    def dispatch_work(self):
         # dispatch the work to worker
         if self.analyzer.is_internal_ip():
-            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
-            self.worker.run(self.expectingDataId, ["localip"], self.analyzer.text)
+            self.worker.run(self.expectingDataId, ["rdns"], self.analyzer.text)
 
         elif self.analyzer.is_ip():
-            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["abuseipdb"], self.analyzer.text)
 
         elif self.analyzer.is_hash() or self.analyzer.is_url():
-            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["virustotal"], self.analyzer.text)
 
         elif self.analyzer.is_base64():
-            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["base64"], self.analyzer.text)
 
         elif self.analyzer.is_user():
-            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["netuser"], self.analyzer.text)
 
         elif self.analyzer.is_pcomputer():
-            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["pcomputer"], self.analyzer.text)
 
         elif self.analyzer.is_mac():
-            self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["mac"], self.analyzer.text)
 
