@@ -47,6 +47,10 @@ dimension = 640x1022+10+10
         if val == 'false':
             return None
         return val
+    
+    def get_proxy_config(self):
+        val = self.get("general", "proxy_auth")
+        return (self.get_proxy_string(), val)
 
     def get_iconify_on_escape(self):
         val = self.get("ui", "iconify_on_escape")
@@ -91,6 +95,3 @@ dimension = 640x1022+10+10
                 print(f"[config] can not read config due to {e}")
                 print("[config] using default config")
                 self.use_default()
-
-        else:
-            self.generate_default()

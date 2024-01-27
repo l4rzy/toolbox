@@ -15,8 +15,8 @@ from PIL import Image, ImageGrab
 import secrets
 
 VERSION_MAJOR = 0
-VERSION_MINOR = 1
-VERSION_PATCH = 3
+VERSION_MINOR = 2
+VERSION_PATCH = 0
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -821,9 +821,8 @@ class DTSToolBox(widget.CTk):
             return
 
         clipboardImg = ImageGrab.grabclipboard()
-        if (self.lastImage is None) or (
-            clipboardImg is not None
-            and clipboardImg.size != self.lastImage.size  # workaround
+        if clipboardImg is not None and (
+            self.lastImage is None or clipboardImg.size != self.lastImage.size
         ):
             self.lastImage = clipboardImg
             # self.tabView.update_from_analyzer(self.analyzer)

@@ -86,9 +86,9 @@ class Curl(CmdWrapper):
 
 
 class LibCurl:
-    def __init__(self, callback=None, proxy=None):
+    def __init__(self, callback=None, proxyConfig=()):
         self.callback = callback
-        self.proxy = proxy
+        (self.proxy, self.auth) = proxyConfig
 
     def thread_fn(self, id, url, callback, headers=None, cookies=None, debug=False):
         handle = pycurl.Curl()
@@ -105,6 +105,7 @@ class LibCurl:
 
         if self.proxy is not None:
             handle.setopt(handle.PROXY, self.proxy)
+            handle.setopt(pycurl.PROXYHEADER, [f'Proxy-Authorization: Basic {self.auth}'])
             handle.setopt(handle.SSL_OPTIONS, handle.SSLOPT_NO_REVOKE)
 
         if headers is not None:
@@ -184,8 +185,8 @@ class AbuseIPDB:
 
         self.apiKey = apiKey
         self.ui = ui  # a ref to UI object
-        self.useProxy: None | str = self.ui.config.get_proxy_string()
-        self.curl = LibCurl(callback=callback, proxy=self.useProxy)
+        self.proxyConfig = self.ui.config.get_proxy_config()
+        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig)
         self.running = False
 
     def query(self, id, text, maxAge=90):
@@ -213,8 +214,8 @@ class Shodan:
 
         self.apiKey = apiKey
         self.ui = ui
-        self.useProxy: None | str = self.ui.config.get_proxy_string()
-        self.curl = LibCurl(callback=callback, proxy=self.useProxy)
+        self.proxyConfig = self.ui.config.get_proxy_config()
+        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig)
 
     def query(self, id, text):
         url = f"https://api.shodan.io/shodan/host/{text}?key={self.apiKey}&minify=false"
@@ -270,8 +271,8 @@ class VirusTotal:
 
         self.ui = ui  # a ref to UI object
         self.apiKey = apiKey
-        self.useProxy: None | str = self.ui.config.get_proxy_string()
-        self.curl = LibCurl(callback=callback, proxy=self.useProxy)
+        self.proxyConfig = self.ui.config.get_proxy_config()
+        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig)
 
     def query(self, id, hash, options={}):
         headers = {"x-apikey": f"{self.apiKey}"}
