@@ -114,7 +114,8 @@ class DTSLabelWithBtn(widget.CTkFrame):
 
     def cb_on_analyze_btn_click(self, event):
         # bad code, but since tkinter doesnt allow event from child to parent
-        self.master.master.master.master.cb_on_entry_update(
+        self.master.master.master.master.cb_on_input_update(
+            source='history',
             text=self.content.cget("text")
         )
 
@@ -148,20 +149,32 @@ class DTSHistory(CTkListbox):
         self.grid(
             row=0, column=0, padx=4, pady=4, columnspan=1, rowspan=1, sticky="SWEN"
         )
-        self.currentPos = 0
+        self.items = []
+        self.widgetCurrentRow = 0
         self.mainUI: DTSToolBox = mainUI
         self.historyClick = False  # workaround
+
+        # for navigation
+        self.naviMaxLength = 7
+        self.navigation = [None] * self.naviMaxLength
 
     def cb_on_click(self, item):
         self.historyClick = True
         self.mainUI.cb_on_entry_update(text=item)
         self.historyClick = False
 
-    def append(self, target, longText=False):
+    def append(self, raw):
         if self.historyClick:
             return
-        self.insert(self.currentPos, target)
-        self.currentPos += 1
+        self.insert(self.widgetCurrentRow, raw)
+        self.widgetCurrentRow += 1
+
+    # called before switching to next view
+    def prepare_to_forward(self, id, raw, content, analyzed):
+        self.navigation.append((id, raw, content, analyzed))
+
+    def prepare_to_backward(self):
+        pass
 
 
 class DTSGenericReport(widget.CTkFrame):
@@ -467,7 +480,7 @@ class DTSLoading(widget.CTkFrame):
 class DTSTabView(widget.CTkTabview):
     def __init__(self, master, config=None, **kwargs):
         super().__init__(master, **kwargs)
-        self.tabNames = ["Report", "Data", "History", "Log", "Preferences"]
+        self.tabNames = ("Report", "Data", "History", "Log", "Preferences")
         self.reports = {}
         self.reportShowing = ""
         self.config = config
@@ -588,6 +601,7 @@ class DTSTabView(widget.CTkTabview):
             self.reports[source].populate(data)
             self.reportShowing = source
 
+        # generic report if analyzer is not sure which item to proceed
         elif source == "analyzer":
             if source not in self.reports:
                 self.reports[source] = DTSGenericReport(self.tab("Report"))
@@ -704,14 +718,24 @@ class DTSToolBox(widget.CTk):
 
         # add widgets to app
         self.topFrame = widget.CTkFrame(self, border_width=2)
-        self.searchBar = widget.CTkEntry(
-            self.topFrame, height=40, width=458, font=widget.CTkFont(size=16)
+        #self.topFrame.grid_columnconfigure(3, weight=1)
+        self.topFrame.grid_columnconfigure(2, weight=1)
+        self.topFrame.grid_rowconfigure(0, weight=1)
+        self.navLeft = widget.CTkButton(
+            self.topFrame, text="⮜", width=40
         )
-        # self.searchDropdown = CTkScrollableDropdown(self.searchBar, values=['1.1.1.1', '170.238.160.191', '192.168.1.1', '2607:f8b0:4009:80a::200e'],
-        #                                            command=self.cb_on_search_dropdown_click, autocomplete=False, button_height=30, double_click=True, )
-        self.button = widget.CTkButton(self.topFrame, text="Lookup")
-        self.searchBar.grid(row=0, column=0, padx=5, pady=5, sticky="NEW")
-        self.button.grid(row=0, column=1, padx=10, pady=10, sticky="ENS")
+        self.navRight = widget.CTkButton(
+            self.topFrame,text = "⮞", width=40
+        )
+        self.searchBar = widget.CTkEntry(
+            self.topFrame, height=40, width=416, font=widget.CTkFont(size=16)
+        )
+        self.searchBtn = widget.CTkButton(self.topFrame, text="Lookup", width=80)
+
+        self.navLeft.grid(row=0, column=0, padx=8, pady=10, sticky="W")
+        self.navRight.grid(row=0, column=1, padx=6, pady=10, sticky="W")
+        self.searchBar.grid(row=0, column=2, padx=5, pady=5,columnspan=1, sticky="WE")
+        self.searchBtn.grid(row=0, column=3, padx=6, pady=10, columnspan=1, sticky="E")
 
         self.tabView = DTSTabView(master=self)
         self.topFrame.grid(
@@ -734,15 +758,19 @@ class DTSToolBox(widget.CTk):
     def clear_search_bar(self):
         self.searchBar.delete(0, len(self.searchBar.get()))
 
-    def set_search_bar(self):
+    def update_search_bar(self):
         self.tabView.update_history(self.analyzer.content)
         if self.searchBar.get() == self.analyzer.text:
             return
         self.clear_search_bar()
         self.searchBar.insert(0, self.analyzer.content)
 
+    def update_top_bar(self):
+        self.update_nav()
+        self.update_search_bar()
+
     def setup_geometry(self):
-        self.minsize(640, 320)
+        self.minsize(640, 800)
 
         if self.config.get("ui", "dimension") is not None:
             self.geometry(self.config.get("ui", "dimension"))
@@ -761,7 +789,7 @@ class DTSToolBox(widget.CTk):
             self.bind("<Escape>", lambda e: self.iconify())
         self.protocol("WM_DELETE_WINDOW", self.cb_on_close)
         self.bind("<Configure>", self.cb_on_drag)
-        self.button.bind("<Button-1>", self.cb_on_entry_update)
+        self.searchBtn.bind("<Button-1>", self.cb_on_entry_update)
         self.searchBar.bind("<Return>", self.cb_on_entry_update)
         # self.searchDropdown.bind('<FocusIn>', self.cb_on_dropdown_focus)
 
@@ -771,11 +799,9 @@ class DTSToolBox(widget.CTk):
         (id, data) = box
         if id == self.expectingDataId:
             if source == "ocr":
-                if data is not None:
-                    self.cb_on_entry_update(text=data)
+                self.cb_on_input_update(source=source, text=data)
                 return
-            if self.analyzer.insertable and not self.analyzer.isComplex:
-                self.set_search_bar()
+
             self.tabView.render_from_worker(source, data)
         else:
             print("[ui] data dropped due to expiration")
@@ -783,13 +809,6 @@ class DTSToolBox(widget.CTk):
     # add events to app
     def cb_on_close(self):
         self.exit_gracefully()
-
-    # unused since dropdown focus bug
-    def cb_on_search_dropdown_click(self, text):
-        self.clear_search_bar()
-        self.searchBar.insert(0, text)
-        self.dropdownFocus = False
-        self.cb_on_entry_update()
 
     def cb_on_dropdown_focus(self, event):
         if event.widget == self.searchDropdown:
@@ -825,7 +844,6 @@ class DTSToolBox(widget.CTk):
             self.lastImage is None or clipboardImg.size != self.lastImage.size
         ):
             self.lastImage = clipboardImg
-            # self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["ocr"], img=clipboardImg)
             return
@@ -839,14 +857,16 @@ class DTSToolBox(widget.CTk):
             print("[ui] nothing or nothing new to analyze")
             return
 
-        self.cb_on_entry_update(event, text=clipboard)
+        self.cb_on_input_update(source='clipboard', text=clipboard)
 
-    def cb_on_entry_update(self, event=None, text=""):
-        if text == "":
-            text = self.searchBar.get().strip()
-        self.analyzer.process(text)
+    def cb_on_entry_update(self, event=None):
+        text = self.searchBar.get().strip()
+        self.cb_on_input_update(source='user', text=text)
 
-        if not self.analyzer.isComplex:
+    def cb_on_input_update(self, source='', text=""):
+        self.analyzer.process(source, text)
+
+        if not self.analyzer.has_complex_data():
             self.dispatch_work()
         else:
             self.expectingDataId = uuid.uuid4().hex

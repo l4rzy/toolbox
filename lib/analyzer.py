@@ -56,6 +56,7 @@ class DTSAnalyzer:
         self.categorizers["pcomputer"] = re.compile(PCOMPUTER)
 
     def reset(self):
+        self.source = ''
         self.text = ""
         self.content = ""
         self.total = 0
@@ -63,8 +64,9 @@ class DTSAnalyzer:
         self.isComplex = False
         self.dataClass = {}
 
-    def process(self, text):
+    def process(self, source, text):
         self.reset()
+        self.source = source
         if text == self.lastText:
             return
 
@@ -102,6 +104,11 @@ class DTSAnalyzer:
 
     def has_result(self):
         return self.hasResult
+    
+    def has_complex_data(self):
+        if self.isComplex or self.text != self.content:
+            return True
+        return False
 
     def is_ip(self) -> bool:
         return self.truefalse(validators.ipv4, cidr=False) or self.truefalse(
@@ -133,3 +140,7 @@ class DTSAnalyzer:
 
     def is_internal_ip(self):
         return self.is_ip() and ipaddress.ip_address(self.content).is_private is True
+    
+    # should be called after all other checks
+    def is_ocr_result(self):
+        return True if self.source == 'ocr' else False
