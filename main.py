@@ -115,8 +115,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
     def cb_on_analyze_btn_click(self, event):
         # bad code, but since tkinter doesnt allow event from child to parent
         self.master.master.master.master.cb_on_input_update(
-            source='history',
-            text=self.content.cget("text")
+            source="history", text=self.content.cget("text")
         )
 
     def set(self, label, content):
@@ -150,31 +149,55 @@ class DTSHistory(CTkListbox):
             row=0, column=0, padx=4, pady=4, columnspan=1, rowspan=1, sticky="SWEN"
         )
         self.items = []
-        self.widgetCurrentRow = 0
+        self.index = 0
         self.mainUI: DTSToolBox = mainUI
         self.historyClick = False  # workaround
 
         # for navigation
-        self.naviMaxLength = 7
-        self.navigation = [None] * self.naviMaxLength
+        from collections import deque
+        self.navigationMax = 10
+        self.navigation = deque([None] * self.navigationMax, maxlen=self.navigationMax)
+        self.navigationIndex = 0
 
     def cb_on_click(self, item):
         self.historyClick = True
         self.mainUI.cb_on_entry_update(text=item)
         self.historyClick = False
 
-    def append(self, raw):
+    def append(self, data):
         if self.historyClick:
             return
-        self.insert(self.widgetCurrentRow, raw)
-        self.widgetCurrentRow += 1
+        self.insert(self.index, data)
+        self.index += 1
+
+        if self.navigationIndex == 0 and self.navigation[self.navigationIndex] is None:
+            self.navigation[0] = data
+        elif self.navigationIndex == self.navigationMax - 1:
+            self.navigation.append(data)
+        else:
+            self.navigationIndex += 1
+            self.navigation[self.navigationIndex] = data
+
+            for i in range(self.navigationIndex + 1, self.navigationMax):
+                self.navigation[i] = None
 
     # called before switching to next view
-    def prepare_to_forward(self, id, raw, content, analyzed):
-        self.navigation.append((id, raw, content, analyzed))
+    def nav_forward(self):
+        if (
+            self.navigationIndex < self.navigationMax - 1
+            and self.navigation[self.navigationIndex + 1] is not None
+        ):
+            self.navigationIndex += 1
+            return self.navigation[self.navigationIndex]
+        else:
+            return None
 
-    def prepare_to_backward(self):
-        pass
+    def nav_backward(self):
+        if self.navigationIndex > 0:
+            self.navigationIndex -= 1
+            return self.navigation[self.navigationIndex]
+        else:
+            return None
 
 
 class DTSGenericReport(widget.CTkFrame):
@@ -708,25 +731,21 @@ class DTSToolBox(widget.CTk):
         self.grid_rowconfigure(1, weight=10)
 
         self.roboto_bold = font.Font(
-            family="Roboto", name="DTSLabelFont", size=10, weight="bold"
+            family="Roboto", name="DTSLabelFont", size=11, weight="bold"
         )
         self.roboto_normal = font.Font(
-            family="Roboto", name="DTSContentFount", size=10, weight="normal"
+            family="Roboto", name="DTSContentFont", size=11, weight="normal"
         )
         self.iconbitmap(resource_path(".\\lib\\icon.ico"))
         self.title("Toolbox")
 
         # add widgets to app
         self.topFrame = widget.CTkFrame(self, border_width=2)
-        #self.topFrame.grid_columnconfigure(3, weight=1)
+        # self.topFrame.grid_columnconfigure(3, weight=1)
         self.topFrame.grid_columnconfigure(2, weight=1)
         self.topFrame.grid_rowconfigure(0, weight=1)
-        self.navLeft = widget.CTkButton(
-            self.topFrame, text="⮜", width=40
-        )
-        self.navRight = widget.CTkButton(
-            self.topFrame,text = "⮞", width=40
-        )
+        self.navLeft = widget.CTkButton(self.topFrame, text="⮜", width=40)
+        self.navRight = widget.CTkButton(self.topFrame, text="⮞", width=40)
         self.searchBar = widget.CTkEntry(
             self.topFrame, height=40, width=416, font=widget.CTkFont(size=16)
         )
@@ -734,7 +753,7 @@ class DTSToolBox(widget.CTk):
 
         self.navLeft.grid(row=0, column=0, padx=8, pady=10, sticky="W")
         self.navRight.grid(row=0, column=1, padx=6, pady=10, sticky="W")
-        self.searchBar.grid(row=0, column=2, padx=5, pady=5,columnspan=1, sticky="WE")
+        self.searchBar.grid(row=0, column=2, padx=5, pady=5, columnspan=1, sticky="WE")
         self.searchBtn.grid(row=0, column=3, padx=6, pady=10, columnspan=1, sticky="E")
 
         self.tabView = DTSTabView(master=self)
@@ -793,11 +812,17 @@ class DTSToolBox(widget.CTk):
         self.searchBar.bind("<Return>", self.cb_on_entry_update)
         # self.searchDropdown.bind('<FocusIn>', self.cb_on_dropdown_focus)
 
+        # navigation buttons
+        self.navLeft.bind("<Button-1>", self.cb_on_nav_left)
+        self.navRight.bind("<Button-1>", self.cb_on_nav_right)
+
     # this function should only be called from workers to deliver data to the ui
     def render(self, source, box):
         print(f"[ui] data received from {source}")
         (id, data) = box
         if id == self.expectingDataId:
+            # add to history
+            self.tabView.history.append((source, data))
             if source == "ocr":
                 self.cb_on_input_update(source=source, text=data)
                 return
@@ -814,6 +839,26 @@ class DTSToolBox(widget.CTk):
         if event.widget == self.searchDropdown:
             print("[+] focused on dropdown")
             self.dropdownFocus = True
+
+    def cb_on_nav_left(self, event):
+        print("[ui] going backward")
+        previousData = self.tabView.history.nav_backward()
+        if previousData is None:
+            print("[ui] nothing to go backward")
+            return
+        else:
+            (source, data) = previousData
+            self.tabView.render_from_worker(source, data)
+
+    def cb_on_nav_right(self, event):
+        print("[ui] going forward")
+        previousData = self.tabView.history.nav_forward()
+        if previousData is None:
+            print("[ui] nothing to go forward")
+            return
+        else:
+            (source, data) = previousData
+            self.tabView.render_from_worker(source, data)
 
     def cb_on_drag(self, event):
         if (
@@ -857,13 +902,13 @@ class DTSToolBox(widget.CTk):
             print("[ui] nothing or nothing new to analyze")
             return
 
-        self.cb_on_input_update(source='clipboard', text=clipboard)
+        self.cb_on_input_update(source="clipboard", text=clipboard)
 
     def cb_on_entry_update(self, event=None):
         text = self.searchBar.get().strip()
-        self.cb_on_input_update(source='user', text=text)
+        self.cb_on_input_update(source="user", text=text)
 
-    def cb_on_input_update(self, source='', text=""):
+    def cb_on_input_update(self, source="", text=""):
         self.analyzer.process(source, text)
 
         if not self.analyzer.has_complex_data():

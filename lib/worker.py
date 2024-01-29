@@ -90,7 +90,9 @@ class LibCurl:
         self.callback = callback
         (self.proxy, self.auth) = proxyConfig
 
-    def thread_fn(self, id, url, callback, headers=None, cookies=None, debug=False):
+    def thread_fn(
+        self, id, originalText, url, callback, headers=None, cookies=None, debug=False
+    ):
         handle = pycurl.Curl()
         if debug:
             handle.setopt(handle.VERBOSE, True)
@@ -98,14 +100,16 @@ class LibCurl:
 
         handle.setopt(
             handle.USERAGENT,
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/122.0",
         )
         handle.setopt(handle.WRITEFUNCTION, buffer.write)
         handle.setopt(handle.URL, url)
 
         if self.proxy is not None:
             handle.setopt(handle.PROXY, self.proxy)
-            handle.setopt(pycurl.PROXYHEADER, [f'Proxy-Authorization: Basic {self.auth}'])
+            handle.setopt(
+                pycurl.PROXYHEADER, [f"Proxy-Authorization: Basic {self.auth}"]
+            )
             handle.setopt(handle.SSL_OPTIONS, handle.SSLOPT_NO_REVOKE)
 
         if headers is not None:
@@ -116,15 +120,16 @@ class LibCurl:
 
         handle.close()
         buffer.close()
-        callback(id, (code, body.decode()))
+        callback(id, (code, originalText, body.decode()))
 
-    def query(self, id, url, headers={}, cookies={}):
+    def query(self, id, originalText, url, headers={}, cookies={}):
         pc_headers = []
         for header, value in headers.items():
             pc_headers.append(f"{header}: {value}")
 
         t = threading.Thread(
-            target=self.thread_fn, args=[id, url, self.callback, pc_headers, cookies]
+            target=self.thread_fn,
+            args=[id, originalText, url, self.callback, pc_headers, cookies],
         )
         t.daemon = True
         t.start()
@@ -195,18 +200,18 @@ class AbuseIPDB:
             "Accept": "application/json",
         }
         url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={text}&maxAgeInDays={maxAge}"
-        self.curl.query(id, url, headers)
+        self.curl.query(id, text, url, headers)
 
 
 class Shodan:
     def __init__(self, apiKey, ui):
         def callback(id, response):
-            (code, body) = response
+            (code, originalText, body) = response
             print(body)
             if code == 200 and body != "":
                 jsonData = simdjson.loads(body)
                 shodanObject = ShodanObject(**jsonData)
-                ui.render(source="shodan", box=(id, shodanObject))
+                ui.render(source="shodan", box=(id, originalText, shodanObject))
 
         if apiKey is None:
             print("[shodan] api key not provived, shodan will not work")
@@ -219,7 +224,7 @@ class Shodan:
 
     def query(self, id, text):
         url = f"https://api.shodan.io/shodan/host/{text}?key={self.apiKey}&minify=false"
-        self.curl.query(id, url)
+        self.curl.query(id, text, url)
 
 
 class DnsResolver:
@@ -257,13 +262,13 @@ class DnsResolver:
 
 class VirusTotal:
     def __init__(self, apiKey, ui):
-        def callback(id, response):
+        def callback(id, originalText, response):
             (code, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
                 jsonData = simdjson.loads(body)
                 virusTotalObject = VirusTotalObject(**jsonData)
-                ui.render(source="virustotal", box=(id, virusTotalObject))
+                ui.render(source="virustotal", box=(id, originalText, virusTotalObject))
 
         if apiKey is None:
             print("[virustotal] api key not provived, virustotal will not work")
@@ -278,7 +283,7 @@ class VirusTotal:
         headers = {"x-apikey": f"{self.apiKey}"}
 
         url = f"https://www.virustotal.com/api/v3/search?query={hash}"
-        self.curl.query(id, url, headers)
+        self.curl.query(id, hash, url, headers)
 
 
 class MacAddress:
@@ -299,7 +304,7 @@ class MacAddress:
             for k, v in response.items():
                 vendor = v
             message = f"Mac address {mac} indicates a network device from {vendor}"
-            self.ui.render(source="mac", box=(id, message))
+            self.ui.render(source="mac", box=(id, mac, message))
 
         t = threading.Thread(target=self.thread_fn, args=[id, mac, thread_callback])
         t.daemon = True
@@ -320,7 +325,7 @@ class LocalIpLookup:
         for subnet, place in self.db.items():
             if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(subnet):
                 res = f"Local IP Address {ip} belongs to {subnet} @ {place}"
-        self.ui.render(source="localip", box=(id, res))
+        self.ui.render(source="localip", box=(id, ip, res))
 
 
 class TesserOCR:
