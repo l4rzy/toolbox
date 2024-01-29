@@ -155,19 +155,20 @@ class DTSHistory(CTkListbox):
 
         # for navigation
         from collections import deque
+
         self.navigationMax = 10
         self.navigation = deque([None] * self.navigationMax, maxlen=self.navigationMax)
         self.navigationIndex = 0
 
     def cb_on_click(self, item):
         self.historyClick = True
-        self.mainUI.cb_on_entry_update(text=item)
+        self.mainUI.cb_on_input_update(text=item)
         self.historyClick = False
 
     def append(self, data):
         if self.historyClick:
             return
-        self.insert(self.index, data)
+        self.insert(self.index, data[1][:20])
         self.index += 1
 
         if self.navigationIndex == 0 and self.navigation[self.navigationIndex] is None:
@@ -579,7 +580,7 @@ class DTSTabView(widget.CTkTabview):
         self.set("Report")
         self.start_loading()
 
-    def render_from_worker(self, source, data):
+    def render_from_worker(self, source, originalText, data):
         self.stop_loading()
         # todo: factoring out common code patterns
         if source == "abuseipdb":
@@ -632,13 +633,12 @@ class DTSTabView(widget.CTkTabview):
                     row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
                 )
 
-            (items, rawText) = data
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", rawText)
+            self.textBoxData.insert("0.0", originalText)
 
             self.hide_other_reports(except_for=source)
             self.reports[source].reset()
-            self.reports[source].populate(items)
+            self.reports[source].populate(data)
             self.reportShowing = source
 
         else:
@@ -819,15 +819,15 @@ class DTSToolBox(widget.CTk):
     # this function should only be called from workers to deliver data to the ui
     def render(self, source, box):
         print(f"[ui] data received from {source}")
-        (id, data) = box
+        (id, originalText, data) = box
         if id == self.expectingDataId:
             # add to history
-            self.tabView.history.append((source, data))
+            self.tabView.history.append((source, originalText, data))
             if source == "ocr":
                 self.cb_on_input_update(source=source, text=data)
                 return
 
-            self.tabView.render_from_worker(source, data)
+            self.tabView.render_from_worker(source, originalText, data)
         else:
             print("[ui] data dropped due to expiration")
 
@@ -841,24 +841,24 @@ class DTSToolBox(widget.CTk):
             self.dropdownFocus = True
 
     def cb_on_nav_left(self, event):
-        print("[ui] going backward")
         previousData = self.tabView.history.nav_backward()
         if previousData is None:
             print("[ui] nothing to go backward")
             return
         else:
-            (source, data) = previousData
-            self.tabView.render_from_worker(source, data)
+            print("[ui] going backward")
+            (source, originalText, data) = previousData
+            self.tabView.render_from_worker(source, originalText, data)
 
     def cb_on_nav_right(self, event):
-        print("[ui] going forward")
         previousData = self.tabView.history.nav_forward()
         if previousData is None:
             print("[ui] nothing to go forward")
             return
         else:
-            (source, data) = previousData
-            self.tabView.render_from_worker(source, data)
+            print("[ui] going forward")
+            (source, originalText, data) = previousData
+            self.tabView.render_from_worker(source, originalText, data)
 
     def cb_on_drag(self, event):
         if (
@@ -917,10 +917,7 @@ class DTSToolBox(widget.CTk):
             self.expectingDataId = uuid.uuid4().hex
             self.render(
                 source="analyzer",
-                box=(
-                    self.expectingDataId,
-                    (self.analyzer.dataClass, self.analyzer.text),
-                ),
+                box=(self.expectingDataId, self.analyzer.text, self.analyzer.dataClass),
             )
 
     def dispatch_work(self):

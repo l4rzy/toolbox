@@ -146,7 +146,7 @@ class NetUser(CmdWrapper):
     def query(self, id, user, domain=True):
         def callback(id, response):
             result = self.parse(response)
-            self.ui.render(source="netuser", box=(id, result))
+            self.ui.render(source="netuser", box=(id, user, result))
 
         cmdline = [self.exe, "user"]
         if domain:
@@ -171,18 +171,18 @@ class Base64Decoder:
         except Exception as e:
             print(f"[base64decoder] encounter error: {e}")
             return
-        self.ui.render(source="base64", box=(id, result))
+        self.ui.render(source="base64", box=(id, s, result))
 
 
 class AbuseIPDB:
     def __init__(self, apiKey, ui):
         def callback(id, response):
-            (code, body) = response
+            (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
                 jsonData = simdjson.loads(body)
                 abuseObject = AbuseObject(**jsonData)
-                ui.render(source="abuseipdb", box=(id, abuseObject))
+                ui.render(source="abuseipdb", box=(id, originalText, abuseObject))
 
         if apiKey is None:
             print("[abuseipdb] api key not provived, abuseipdb will not work")
@@ -251,7 +251,7 @@ class DnsResolver:
             result = self.parse(response)
             if result == "":
                 result = f"{hname} was not resolvable."
-            self.ui.render(source="dns", box=(id, result))
+            self.ui.render(source="dns", box=(id, hname, result))
 
         t = threading.Thread(
             target=self.thread_fn, args=[id, hname, thread_callback, reverse]
@@ -345,7 +345,7 @@ class TesserOCR:
 
     def query(self, id, img):
         def thread_callback(id, response):
-            self.ui.render(source="ocr", box=(id, response))
+            self.ui.render(source="ocr", box=(id, "Image from clipboard", response))
 
         t = threading.Thread(target=self.thread_fn, args=[id, img, thread_callback])
         t.daemon = True
