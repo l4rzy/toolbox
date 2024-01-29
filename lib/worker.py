@@ -262,8 +262,8 @@ class DnsResolver:
 
 class VirusTotal:
     def __init__(self, apiKey, ui):
-        def callback(id, originalText, response):
-            (code, body) = response
+        def callback(id, response):
+            (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
                 jsonData = simdjson.loads(body)

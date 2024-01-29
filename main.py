@@ -16,7 +16,7 @@ import secrets
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 2
-VERSION_PATCH = 0
+VERSION_PATCH = 5
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -168,7 +168,7 @@ class DTSHistory(CTkListbox):
     def append(self, data):
         if self.historyClick:
             return
-        self.insert(self.index, data[1][:20])
+        self.insert(self.index, data[1][:50])
         self.index += 1
 
         if self.navigationIndex == 0 and self.navigation[self.navigationIndex] is None:
@@ -501,6 +501,16 @@ class DTSLoading(widget.CTkFrame):
         )
 
 
+class DTSLog(widget.CTkTextbox):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+    def write(self, text):
+        self.insert("end", text)
+
+    def flush(self):
+        pass
+
 class DTSTabView(widget.CTkTabview):
     def __init__(self, master, config=None, **kwargs):
         super().__init__(master, **kwargs)
@@ -543,10 +553,10 @@ class DTSTabView(widget.CTkTabview):
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
 
-        self.textBoxLog = widget.CTkTextbox(
+        self.textBoxLog = DTSLog(
             self.tab("Log"), font=widget.CTkFont(family="Consolas", size=14)
         )
-        self.textBoxLog.insert("0.0", "I have nothing to show right now ¯\_(ツ)_/¯")
+        self.textBoxLog.insert("0.0", "This is the start of your log\n")
         self.textBoxLog.grid(
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
@@ -749,12 +759,12 @@ class DTSToolBox(widget.CTk):
         self.searchBar = widget.CTkEntry(
             self.topFrame, height=40, width=416, font=widget.CTkFont(size=16)
         )
-        self.searchBtn = widget.CTkButton(self.topFrame, text="Lookup", width=80)
+        self.searchBtn = widget.CTkButton(self.topFrame, text="Lookup", width=90)
 
         self.navLeft.grid(row=0, column=0, padx=8, pady=10, sticky="W")
-        self.navRight.grid(row=0, column=1, padx=6, pady=10, sticky="W")
-        self.searchBar.grid(row=0, column=2, padx=5, pady=5, columnspan=1, sticky="WE")
-        self.searchBtn.grid(row=0, column=3, padx=6, pady=10, columnspan=1, sticky="E")
+        self.navRight.grid(row=0, column=1, padx=8, pady=10, sticky="W")
+        self.searchBar.grid(row=0, column=2, padx=2, pady=5, columnspan=1, sticky="WE")
+        self.searchBtn.grid(row=0, column=3, padx=8, pady=10, columnspan=1, sticky="E")
 
         self.tabView = DTSTabView(master=self)
         self.topFrame.grid(
@@ -816,17 +826,19 @@ class DTSToolBox(widget.CTk):
         self.navLeft.bind("<Button-1>", self.cb_on_nav_left)
         self.navRight.bind("<Button-1>", self.cb_on_nav_right)
 
+        # redirect stdout to log
+        sys.stdout = self.tabView.textBoxLog
+
     # this function should only be called from workers to deliver data to the ui
     def render(self, source, box):
         print(f"[ui] data received from {source}")
         (id, originalText, data) = box
         if id == self.expectingDataId:
-            # add to history
-            self.tabView.history.append((source, originalText, data))
             if source == "ocr":
                 self.cb_on_input_update(source=source, text=data)
                 return
-
+            
+            self.tabView.history.append((source, originalText, data))
             self.tabView.render_from_worker(source, originalText, data)
         else:
             print("[ui] data dropped due to expiration")
