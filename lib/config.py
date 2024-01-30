@@ -5,17 +5,19 @@ class DTSConfig:
     def __init__(self, configFile="config.ini"):
         self.defaultCfg = """
 [general]
-proxy = insert_your_proxy_string_here
-ocr = true
+proxy = false
+proxy_auth = your basic auth here
+
 [api]
-abuseipdb = insert_your_abuseipdb_api_key_here
-virustotal = insert_your_vt_api_key_here
-shodan = insert_your_shodan_api_key_here # currently not in use
+abuseipdb = f99318312584da17678d02197eee525a5877
+virustotal = 18b5d136ddc71474b3a05a9e014374
+shodan = 7TeyFZ8oyLulHwYUOcSPzZ
+
 [ui]
-analyze_on_focus = 1
-iconify_on_escape = true
-clipboard_max_length = 1000
-dimension = 640x1022+10+10
+analyze_on_focus = true
+iconify_on_escape = false
+clipboard_max_length = 1024
+dimension = 640x800+800+378
 """
         self.configFile = configFile
         self.config = configparser.ConfigParser(allow_no_value=True)
@@ -40,7 +42,10 @@ dimension = 640x1022+10+10
             return None
 
     def set(self, section, key, value):
-        self.config[section][key] = value
+        try:
+            self.config[section][key] = value
+        except Exception as e:
+            print(f'[config] can not set config due to {e}')
 
     def get_proxy_string(self) -> None | str:
         val = self.get("general", "proxy")
@@ -95,3 +100,5 @@ dimension = 640x1022+10+10
                 print(f"[config] can not read config due to {e}")
                 print("[config] using default config")
                 self.use_default()
+        else:
+            self.use_default()

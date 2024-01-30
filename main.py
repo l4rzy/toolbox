@@ -349,8 +349,8 @@ class DTSVirusTotalReport(widget.CTkFrame):
             )
             self.magicInfo.set("Magic", magic)
             self.signature.set(
-                "Signature",
-                content=f"Signed by {signature.signers} on {signature.signing_date}"
+                "Signed binary",
+                content=f"Signed by {signature.signers} on {signature.signing_date if signature.signing_date is not None else 'date unknown'}"
                 if signature.verified is not None
                 else "No",
             )
