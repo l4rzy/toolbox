@@ -1,8 +1,8 @@
 import configparser
 
+
 class DTSConfig:
     def __init__(self, configFile="config.ini"):
-
         self.defaultCfg = """
 [general]
 proxy = insert_your_proxy_string_here
@@ -44,10 +44,10 @@ dimension = 640x1022+10+10
 
     def get_proxy_string(self) -> None | str:
         val = self.get("general", "proxy")
-        if val == 'false':
+        if val == "false":
             return None
         return val
-    
+
     def get_proxy_config(self):
         val = self.get("general", "proxy_auth")
         return (self.get_proxy_string(), val)

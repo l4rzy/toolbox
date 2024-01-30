@@ -1,6 +1,6 @@
 import os
 import sys
-from inspect import currentframe, getframeinfo
+import hashlib
 
 
 def resource_path(relative_path):
@@ -14,6 +14,5 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-def debug_print(arg):
-    frameinfo = getframeinfo(currentframe().f_back)
-    print(frameinfo.filename, frameinfo.lineno, ":", arg)
+def hash_str(itemStr: str):
+    return hashlib.sha256(itemStr.encode()).hexdigest()

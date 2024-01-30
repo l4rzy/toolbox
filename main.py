@@ -7,16 +7,16 @@ from lib.worker import DTSWorker
 from lib.tkdial import Meter
 from lib.CTkListbox import CTkListbox
 from iso3166 import countries
-from lib.util import resource_path
-from lib.structure import AbuseObject, VirusTotalObject, VTAttributes
+from lib.util import resource_path, hash_str
+from lib.structure import AbuseObject, VirusTotalObject, VTAttributes, NISTObject
 import signal
 import sys
 from PIL import Image, ImageGrab
 import secrets
 
 VERSION_MAJOR = 0
-VERSION_MINOR = 2
-VERSION_PATCH = 5
+VERSION_MINOR = 3
+VERSION_PATCH = 0
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -148,7 +148,7 @@ class DTSHistory(CTkListbox):
         self.grid(
             row=0, column=0, padx=4, pady=4, columnspan=1, rowspan=1, sticky="SWEN"
         )
-        self.items = []
+        self.items = {}
         self.index = 0
         self.mainUI: DTSToolBox = mainUI
         self.historyClick = False  # workaround
@@ -162,14 +162,35 @@ class DTSHistory(CTkListbox):
 
     def cb_on_click(self, item):
         self.historyClick = True
-        self.mainUI.cb_on_input_update(text=item)
+        itemHash = hash_str(item)
+        # find if it exists in navigation cache
+        for nv in self.navigation:
+            (_, nvHash) = self.make_hash(nv)
+            if itemHash == nvHash:
+                print(f"[history] {item} exists in navigation cache")
+                self.historyClick = False
+                (source, originalText, data) = nv
+                self.mainUI.tabView.render_from_worker(source, originalText, data)
+                return
+
+        originalText = self.items[hash_str(item)]
+        self.mainUI.cb_on_input_update(text=originalText)
         self.historyClick = False
 
+    def make_hash(self, data):
+        if data is None:
+            return ("-", "-")
+        type = data[0] if data[0] != "analyzer" else "ocr"
+        hexstr = f"{type}: {data[1][:50]}"
+        return (hexstr, hash_str(hexstr))
+
     def append(self, data):
-        if self.historyClick:
-            return
-        self.insert(self.index, data[1][:50])
-        self.index += 1
+        if not self.historyClick:
+            (hashStr, hashStrDigest) = self.make_hash(data)
+
+            self.insert(self.index, hashStr)
+            self.items[hashStrDigest] = data[1]
+            self.index += 1
 
         if self.navigationIndex == 0 and self.navigation[self.navigationIndex] is None:
             self.navigation[0] = data
@@ -225,6 +246,8 @@ class DTSGenericReport(widget.CTkFrame):
         self.entries = []
 
     def populate(self, data):
+        if len(data) == 1:
+            self.label.configure(text="Did you mean?")
         for type in data:
             for entry in set(data[type]):
                 e = DTSLabelWithBtn(self, copy_btn=True, analyze_btn=True)
@@ -419,11 +442,98 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             self.country.set("Country", f"{country.name}")
 
 
-##
-class DTSIPReport(widget.CTkFrame):
+class DTSNISTCVEReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.abuseIPDB = DTSAbuseIPDBReport(self)
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(5, weight=1)
+
+        self.title = widget.CTkLabel(
+            self, justify="center", font=widget.CTkFont(size=18, weight="bold")
+        )
+        self.label = widget.CTkLabel(
+            self, justify="center", font=widget.CTkFont(size=14)
+        )
+        self.result = widget.CTkLabel(self, justify="center")
+        self.rateMeter = Meter(
+            self,
+            radius=200,
+            start=0,
+            end=100,
+            border_width=5,
+            bg="#212121",
+            fg="gray35",
+            text_color="white",
+            start_angle=180,
+            end_angle=-270,
+            scale_color="black",
+            axis_color="white",
+            needle_color="white",
+            state="static",
+            scroll=False,
+        )
+        self.rateMeter.set_mark(0, 24, "green")
+        self.rateMeter.set_mark(25, 50, "yellow")
+        self.rateMeter.set_mark(51, 75, "orange")
+        self.rateMeter.set_mark(76, 100, "red")
+
+        self.desc = DTSLabelWithBtn(self, copy_btn=False)
+        self.metrics = widget.CTkTextbox(
+            self, font=widget.CTkFont(family="Consolas", size=14)
+        )
+
+    def clear(self):
+        self.metrics.delete("0.0", "end")
+
+    def render_exception(self, message="---"):
+        self.rateMeter.set(0)
+        self.label.configure(text="An error happened")
+        self.result.configure(text=message)
+        self.desc.grid_remove()
+        self.metrics.grid_remove()
+
+    def populate(self, data: NISTObject):
+        self.clear()
+        self.title.grid(row=0, column=0, padx=4, pady=2)
+        self.label.grid(row=1, column=0, padx=4, pady=2)
+        self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
+        self.result.grid(row=3, column=0, padx=4, pady=2)
+        self.desc.grid(row=4, column=0, padx=30, pady=10, sticky="NSEW")
+        self.metrics.grid(row=5, column=0, padx=6, pady=10, sticky="NSEW")
+
+        self.title.configure(text="NIST's CVE Report")
+
+        if data.vulnerabilities == [] or data.vulnerabilities is None:
+            self.render_exception("CVE not found!")
+            return
+
+        try:
+            firstCve = data.vulnerabilities[0].cve
+            self.label.configure(text=f"for {firstCve.id}")
+            self.result.configure(text=f"Published on {firstCve.published}")
+
+            desc = firstCve.descriptions[0].value
+            shortDesc = (
+                desc[: desc[:300].rindex(". ")] + " ..." if len(desc) > 300 else desc
+            )
+
+            self.desc.set("Desc", shortDesc)
+            if firstCve.metrics.cvssMetricV31 is not None:
+                cvss = firstCve.metrics.cvssMetricV31[0].cvssData
+            elif firstCve.metrics.cvssMetricV2 is not None:
+                cvss = firstCve.metrics.cvssMetricV2[0].cvssData
+            else:
+                self.rateMeter.set(0)
+                self.metrics.insert("0.0", "Metrics not found!")
+                return
+
+            self.rateMeter.set(int(cvss.baseScore * 10))
+            self.metrics.insert("0.0", cvss.model_dump_json(indent=2))
+
+        except Exception as e:
+            print(e)
+            self.render_exception()
 
 
 class DTSTextReport(widget.CTkFrame):
@@ -475,7 +585,7 @@ class DTSLoading(widget.CTkFrame):
         self.loadingText = (
             "Loading",
             "Thinking",
-            "Munching bits",
+            "Munching",
             "Hang in there",
             "Establishing network connection",
             "Hmm let's see",
@@ -511,12 +621,13 @@ class DTSLog(widget.CTkTextbox):
     def flush(self):
         pass
 
+
 class DTSTabView(widget.CTkTabview):
     def __init__(self, master, config=None, **kwargs):
         super().__init__(master, **kwargs)
         self.tabNames = ("Report", "Data", "History", "Log", "Preferences")
         self.reports = {}
-        self.reportShowing = ""
+        self.lastData = 0
         self.config = config
 
         for name in self.tabNames:
@@ -591,7 +702,13 @@ class DTSTabView(widget.CTkTabview):
         self.start_loading()
 
     def render_from_worker(self, source, originalText, data):
+        if f"{source}-{originalText}" == self.lastData:
+            print("[tabview] duplicated data, will not render again")
+            self.set("Report")
+            return
+
         self.stop_loading()
+        self.set("Report")
         # todo: factoring out common code patterns
         if source == "abuseipdb":
             if source not in self.reports:
@@ -605,7 +722,6 @@ class DTSTabView(widget.CTkTabview):
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
-            self.reportShowing = source
 
         elif source == "virustotal":
             if source not in self.reports:
@@ -619,7 +735,19 @@ class DTSTabView(widget.CTkTabview):
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
-            self.reportShowing = source
+
+        elif source == "cve":
+            if source not in self.reports:
+                self.reports[source] = DTSNISTCVEReport(self.tab("Report"))
+                self.reports[source].grid(
+                    row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
+                )
+
+            self.textBoxData.delete("0.0", "end")
+            self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
+
+            self.hide_other_reports(except_for=source)
+            self.reports[source].populate(data)
 
         elif source in ("base64", "dns", "rdns", "pcomputer", "mac"):
             if source not in self.reports:
@@ -633,7 +761,6 @@ class DTSTabView(widget.CTkTabview):
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
-            self.reportShowing = source
 
         # generic report if analyzer is not sure which item to proceed
         elif source == "analyzer":
@@ -649,10 +776,11 @@ class DTSTabView(widget.CTkTabview):
             self.hide_other_reports(except_for=source)
             self.reports[source].reset()
             self.reports[source].populate(data)
-            self.reportShowing = source
 
         else:
             print(f"[ui] can't render from `{source}` with data = `{data}`")
+
+        self.lastData = f"{source}-{originalText}"
 
 
 class DTSPreferencesGeneral(widget.CTkFrame):
@@ -837,7 +965,7 @@ class DTSToolBox(widget.CTk):
             if source == "ocr":
                 self.cb_on_input_update(source=source, text=data)
                 return
-            
+
             self.tabView.history.append((source, originalText, data))
             self.tabView.render_from_worker(source, originalText, data)
         else:
@@ -948,6 +1076,11 @@ class DTSToolBox(widget.CTk):
             self.tabView.update_from_analyzer(self.analyzer)
             self.expectingDataId = uuid.uuid4().hex
             self.worker.run(self.expectingDataId, ["virustotal"], self.analyzer.content)
+
+        elif self.analyzer.is_cve():
+            self.tabView.update_from_analyzer(self.analyzer)
+            self.expectingDataId = uuid.uuid4().hex
+            self.worker.run(self.expectingDataId, ["cve"], self.analyzer.content)
 
         elif self.analyzer.is_base64():
             self.tabView.update_from_analyzer(self.analyzer)

@@ -8,7 +8,7 @@ except Exception:
 import threading
 import pycurl
 from .util import resource_path
-from .structure import AbuseObject, VirusTotalObject, ShodanObject
+from .structure import AbuseObject, VirusTotalObject, ShodanObject, NISTObject
 import ouilookup
 import ipaddress
 
@@ -286,6 +286,25 @@ class VirusTotal:
         self.curl.query(id, hash, url, headers)
 
 
+class NISTCVE:
+    def __init__(self, ui):
+        def callback(id, response):
+            (code, originalText, body) = response
+            # parse response, since result is json
+            if code == 200 and body != "":
+                jsonData = simdjson.loads(body)
+                nistObject = NISTObject(**jsonData)
+                ui.render(source="cve", box=(id, originalText, nistObject))
+
+        self.ui = ui  # a ref to UI object
+        self.proxyConfig = self.ui.config.get_proxy_config()
+        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig)
+
+    def query(self, id, cve, options={}):
+        url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve}"
+        self.curl.query(id, cve, url)
+
+
 class MacAddress:
     def __init__(self, ui):
         self.ui = ui
@@ -364,6 +383,7 @@ class DTSWorker:
 
         self.virusTotal = VirusTotal(apiKey=virusTotalKey, ui=self.ui)
         self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBKey, ui=self.ui)
+        self.nistCVE = NISTCVE(ui=self.ui)
         self.netUser = NetUser(ui=self.ui)
         self.base64Decoder = Base64Decoder(ui=self.ui)
         # self.shodan = Shodan(apiKey=shodanAPIKey, ui=self.ui)
@@ -378,6 +398,8 @@ class DTSWorker:
                 self.virusTotal.query(id, text)
             elif t == "abuseipdb":
                 self.abuseIPDB.query(id, text)
+            elif t == "cve":
+                self.nistCVE.query(id, text)
             elif t == "netuser":
                 self.netUser.query(id, text)
             elif t == "base64":

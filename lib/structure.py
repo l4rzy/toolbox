@@ -164,3 +164,122 @@ class ShodanObject(BaseModel):
     ip_str: str
     os: Optional[str] = None
     ports: List[int]
+
+
+class NISTDescription(BaseModel):
+    lang: Optional[str] = None
+    value: Optional[str] = None
+
+
+class NISTCvssData(BaseModel):
+    version: Optional[str] = None
+    vectorString: Optional[str] = None
+    attackVector: Optional[str] = None
+    attackComplexity: Optional[str] = None
+    privilegesRequired: Optional[str] = None
+    userInteraction: Optional[str] = None
+    scope: Optional[str] = None
+    confidentialityImpact: Optional[str] = None
+    integrityImpact: Optional[str] = None
+    availabilityImpact: Optional[str] = None
+    baseScore: Optional[float] = None
+    baseSeverity: Optional[str] = None
+
+
+class NISTCvssMetricV31Item(BaseModel):
+    source: Optional[str] = None
+    type: Optional[str] = None
+    cvssData: Optional[NISTCvssData] = None
+    exploitabilityScore: Optional[float] = None
+    impactScore: Optional[float] = None
+
+
+class NISTCvssData1(BaseModel):
+    version: Optional[str] = None
+    vectorString: Optional[str] = None
+    accessVector: Optional[str] = None
+    accessComplexity: Optional[str] = None
+    authentication: Optional[str] = None
+    confidentialityImpact: Optional[str] = None
+    integrityImpact: Optional[str] = None
+    availabilityImpact: Optional[str] = None
+    baseScore: Optional[float] = None
+
+
+class NISTCvssMetricV2Item(BaseModel):
+    source: Optional[str] = None
+    type: Optional[str] = None
+    cvssData: Optional[NISTCvssData1] = None
+    baseSeverity: Optional[str] = None
+    exploitabilityScore: Optional[float] = None
+    impactScore: Optional[float] = None
+    acInsufInfo: Optional[bool] = None
+    obtainAllPrivilege: Optional[bool] = None
+    obtainUserPrivilege: Optional[bool] = None
+    obtainOtherPrivilege: Optional[bool] = None
+    userInteractionRequired: Optional[bool] = None
+
+
+class NISTMetrics(BaseModel):
+    cvssMetricV31: Optional[List[NISTCvssMetricV31Item]] = None
+    cvssMetricV2: Optional[List[NISTCvssMetricV2Item]] = None
+
+
+class NISTDescriptionItem(NISTDescription):
+    pass
+
+
+class NISTWeakness(BaseModel):
+    source: Optional[str] = None
+    type: Optional[str] = None
+    description: Optional[List[NISTDescriptionItem]] = None
+
+
+class NISTCpeMatchItem(BaseModel):
+    vulnerable: Optional[bool] = None
+    criteria: Optional[str] = None
+    versionEndIncluding: Optional[str] = None
+    matchCriteriaId: Optional[str] = None
+
+
+class NISTNode(BaseModel):
+    operator: Optional[str] = None
+    negate: Optional[bool] = None
+    cpeMatch: Optional[List[NISTCpeMatchItem]] = None
+
+
+class NISTConfiguration(BaseModel):
+    nodes: Optional[List[NISTNode]] = None
+
+
+class NISTReference(BaseModel):
+    url: Optional[str] = None
+    source: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+class NISTCve(BaseModel):
+    id: Optional[str] = None
+    sourceIdentifier: Optional[str] = None
+    published: Optional[str] = None
+    lastModified: Optional[str] = None
+    vulnStatus: Optional[str] = None
+    descriptions: Optional[List[NISTDescription]] = None
+    metrics: Optional[NISTMetrics] = None
+    weaknesses: Optional[List[NISTWeakness]] = None
+    configurations: Optional[List[NISTConfiguration]] = None
+    references: Optional[List[NISTReference]] = None
+
+
+class NISTVulnerability(BaseModel):
+    cve: Optional[NISTCve] = None
+
+
+class NISTObject(BaseModel):
+    resultsPerPage: Optional[int] = None
+    startIndex: Optional[int] = None
+    totalResults: Optional[int] = None
+    format: Optional[str] = None
+    version: Optional[str] = None
+    timestamp: Optional[str] = None
+    vulnerabilities: Optional[List[NISTVulnerability]] = None
