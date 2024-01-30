@@ -37,6 +37,20 @@ class VTLastAnalysisStats(BaseModel):
     undetected: int = 0
 
 
+class VTSignatureInfo(BaseModel):
+    product: Optional[str] = None
+    verified: Optional[str] = None
+    description: Optional[str] = None
+    file_version: Optional[str] = None
+    signing_date: Optional[str] = None
+    x509: Optional[list] = None
+    signers: Optional[str] = None
+    counter_signers_details: Optional[list] = None
+    counter_signers: Optional[str] = None
+    copyright: Optional[str] = None
+    signers_details: Optional[list] = None
+
+
 class VTAttributes(BaseModel):
     type_description: Optional[str] = None
     tlsh: Optional[str] = None
@@ -44,7 +58,7 @@ class VTAttributes(BaseModel):
     type_tags: Optional[List[str]] = None
     creation_date: Optional[int] = None
     names: Optional[List[str]] = None
-    signature_info: Optional[dict] = None
+    signature_info: Optional[VTSignatureInfo] = None
     last_modification_date: Optional[int] = None
     type_tag: Optional[str] = None
     times_submitted: Optional[int] = None

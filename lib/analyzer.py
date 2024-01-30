@@ -71,7 +71,8 @@ class DTSAnalyzer:
     def process(self, source, text):
         self.reset()
         self.source = source
-        if text == self.lastText:
+        # user can override lastText check
+        if text == self.lastText and source != "user":
             return
 
         if len(text) > self.config.get_clipboard_max_length():

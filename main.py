@@ -295,6 +295,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
 
         self.knownNames = DTSLabelWithBtn(self, web_btn=False, copy_btn=False)
         self.magicInfo = DTSLabelWithBtn(self, web_btn=False, copy_btn=False)
+        self.signature = DTSLabelWithBtn(self, web_btn=False, copy_btn=False)
 
     def render_exception(self, message):
         self.rateMeter.set(0)
@@ -302,6 +303,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.label.configure(text="Error happened!")
         self.knownNames.grid_remove()
         self.magicInfo.grid_remove()
+        self.signature.grid_remove()
 
     def populate(self, data: VirusTotalObject):
         self.title.grid(row=0, column=0, padx=4, pady=2)
@@ -310,6 +312,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.result.grid(row=3, column=0, padx=4, pady=2)
         self.knownNames.grid(row=4, column=0, padx=4, pady=2)
         self.magicInfo.grid(row=5, column=0, padx=4, pady=2)
+        self.signature.grid(row=6, column=0, padx=4, pady=2)
 
         self.title.configure(text="VirusTotal Report")
         try:
@@ -328,6 +331,8 @@ class DTSVirusTotalReport(widget.CTkFrame):
         if firstResultType == "file":
             magic = firstResult.magic
             names = firstResult.names
+            signature = firstResult.signature_info
+
             totalVendors = (
                 lastAnalysis.malicious
                 + lastAnalysis.undetected
@@ -343,6 +348,12 @@ class DTSVirusTotalReport(widget.CTkFrame):
                 "Known names", ", ".join(names[:3]) if names is not None else "_"
             )
             self.magicInfo.set("Magic", magic)
+            self.signature.set(
+                "Signature",
+                content=f"Signed by {signature.signers} on {signature.signing_date}"
+                if signature.verified is not None
+                else "No",
+            )
 
         elif firstResultType in ("domain", "url"):
             totalVendors = (
@@ -656,6 +667,7 @@ class DTSTabView(widget.CTkTabview):
         self.preferences.grid(
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
+        self.preferences.load()
 
         self.tab("History").grid_columnconfigure(0, weight=1)
         self.tab("History").grid_rowconfigure(0, weight=1)
@@ -667,7 +679,7 @@ class DTSTabView(widget.CTkTabview):
         self.textBoxLog = DTSLog(
             self.tab("Log"), font=widget.CTkFont(family="Consolas", size=14)
         )
-        self.textBoxLog.insert("0.0", "This is the start of your log\n")
+        self.textBoxLog.insert("0.0", "This is the start of your log\n---\n")
         self.textBoxLog.grid(
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
@@ -838,27 +850,55 @@ class DTSAboutDialog(widget.CTkToplevel):
 
 
 class DTSPreferences(widget.CTkFrame):
-    def __init__(self, master, config, **kwargs):
+    def __init__(self, master, config: DTSConfig, **kwargs):
         super().__init__(master, **kwargs)
         self.config = config
         self.aboutDialog = None
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        # self.grid_rowconfigure(0, weight=1)
+        self.analyzeOnFocus = widget.CTkSwitch(
+            self,
+            text="Analyze clipboard on window focus",
+            onvalue="true",
+            offvalue="false",
+            command=self.cb_on_setting_analyze_on_focus_click,
+        )
         self.about = widget.CTkButton(self, text="About this program")
         self.about.grid(row=0, column=0, padx=5, pady=5)
         self.about.bind("<Button-1>", self.cb_on_btn_click)
+        self.analyzeOnFocus.grid(row=1, column=0, pady=5)
+        self.iconifyOnEscape = widget.CTkSwitch(
+            self,
+            text="Minimize window when <Esc> hit",
+            onvalue="true",
+            offvalue="false",
+            command=self.cb_on_setting_iconify_on_escape_click,
+        )
+        self.iconifyOnEscape.grid(row=2, column=0, pady=5)
 
     def cb_on_btn_click(self, event):
         if self.aboutDialog is None or not self.aboutDialog.winfo_exists():
             self.aboutDialog = DTSAboutDialog(self)
         self.aboutDialog.focus()
 
-    def load(self):
-        pass
+    def cb_on_setting_analyze_on_focus_click(self):
+        value = self.analyzeOnFocus.get()
+        self.config.set("ui", "analyze_on_focus", value)
+        self.config.persist()
 
-    def get_root_geometry(self):
-        return self.master.get_root_geometry()
+    def cb_on_setting_iconify_on_escape_click(self):
+        value = self.iconifyOnEscape.get()
+        self.config.set("ui", "iconify_on_escape", value)
+        self.config.persist()
+
+    def load(self):
+        configAnalyzeOnFocus = self.config.get_analyze_on_focus()
+        if configAnalyzeOnFocus:
+            self.analyzeOnFocus.select()
+        configIconifyOnEscape = self.config.get_iconify_on_escape()
+        if configIconifyOnEscape:
+            self.iconifyOnEscape.select()
 
 
 class DTSToolBox(widget.CTk):
@@ -876,6 +916,15 @@ class DTSToolBox(widget.CTk):
         )
         self.iconbitmap(resource_path(".\\lib\\icon.ico"))
         self.title("Toolbox")
+        self.welcomeTexts = [
+            "How are you doing today?",
+            "Feeling good?",
+            "Search anything!",
+            "Paste me something!",
+            "I'm here to help",
+            "Hi there!",
+            "I'm ready!",
+        ]
 
         # add widgets to app
         self.topFrame = widget.CTkFrame(self, border_width=2)
@@ -885,7 +934,11 @@ class DTSToolBox(widget.CTk):
         self.navLeft = widget.CTkButton(self.topFrame, text="⮜", width=40)
         self.navRight = widget.CTkButton(self.topFrame, text="⮞", width=40)
         self.searchBar = widget.CTkEntry(
-            self.topFrame, height=40, width=416, font=widget.CTkFont(size=16)
+            self.topFrame,
+            height=40,
+            width=416,
+            font=widget.CTkFont(size=16),
+            placeholder_text=secrets.choice(self.welcomeTexts),
         )
         self.searchBtn = widget.CTkButton(self.topFrame, text="Lookup", width=90)
 
@@ -894,7 +947,10 @@ class DTSToolBox(widget.CTk):
         self.searchBar.grid(row=0, column=2, padx=2, pady=5, columnspan=1, sticky="WE")
         self.searchBtn.grid(row=0, column=3, padx=8, pady=10, columnspan=1, sticky="E")
 
-        self.tabView = DTSTabView(master=self)
+        # config
+        self.config = DTSConfig()
+
+        self.tabView = DTSTabView(master=self, config=self.config)
         self.topFrame.grid(
             row=0, column=0, padx=6, pady=6, columnspan=1, rowspan=1, sticky="NEW"
         )
@@ -903,8 +959,6 @@ class DTSToolBox(widget.CTk):
         )
         self.drag_id = ""
 
-        # config
-        self.config = DTSConfig()
         # analyzer
         self.analyzer = DTSAnalyzer(self.config)
         self.worker = DTSWorker(self.config, self)
@@ -942,8 +996,7 @@ class DTSToolBox(widget.CTk):
 
     def bind_events(self):
         self.bind("<FocusIn>", self.cb_on_focus)
-        if self.config.get_iconify_on_escape() is True:
-            self.bind("<Escape>", lambda e: self.iconify())
+        self.bind("<Escape>", self.cb_on_escape)
         self.protocol("WM_DELETE_WINDOW", self.cb_on_close)
         self.bind("<Configure>", self.cb_on_drag)
         self.searchBtn.bind("<Button-1>", self.cb_on_entry_update)
@@ -974,6 +1027,11 @@ class DTSToolBox(widget.CTk):
     # add events to app
     def cb_on_close(self):
         self.exit_gracefully()
+
+    def cb_on_escape(self, event):
+        print(self.config.get_iconify_on_escape())
+        if self.config.get_iconify_on_escape() is True:
+            self.iconify()
 
     def cb_on_dropdown_focus(self, event):
         if event.widget == self.searchDropdown:
@@ -1021,7 +1079,7 @@ class DTSToolBox(widget.CTk):
         self.drag_id = ""
 
     def cb_on_focus(self, event):
-        if event.widget != self or self.config.get("ui", "analyze_on_focus") == "0":
+        if event.widget != self or self.config.get_analyze_on_focus() is False:
             return
 
         clipboardImg = ImageGrab.grabclipboard()
