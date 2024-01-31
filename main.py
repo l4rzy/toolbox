@@ -16,7 +16,7 @@ import secrets
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 3
-VERSION_PATCH = 0
+VERSION_PATCH = 1
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -115,7 +115,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
     def cb_on_analyze_btn_click(self, event):
         # bad code, but since tkinter doesnt allow event from child to parent
         self.master.master.master.master.cb_on_input_update(
-            source="history", text=self.content.cget("text")
+            source="user", text=self.content.cget("text")
         )
 
     def set(self, label, content):
@@ -232,7 +232,7 @@ class DTSGenericReport(widget.CTkFrame):
             self, text="Report", font=widget.CTkFont(size=18, weight="bold")
         )
         self.label = widget.CTkLabel(self, text="Which one should I analyze?")
-        self.title.grid(row=0, column=0, padx=4, pady=10)
+        self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=5)
         self.entries = []
         self.row = 2
@@ -245,8 +245,8 @@ class DTSGenericReport(widget.CTkFrame):
 
         self.entries = []
 
-    def populate(self, data):
-        if len(data) == 1:
+    def populate(self, data, correction=False):
+        if correction is True or sum(len(data[c]) for c in data) == 1:
             self.label.configure(text="Did you mean?")
         for type in data:
             for entry in set(data[type]):
@@ -306,7 +306,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.signature.grid_remove()
 
     def populate(self, data: VirusTotalObject):
-        self.title.grid(row=0, column=0, padx=4, pady=2)
+        self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=2)
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
         self.result.grid(row=3, column=0, padx=4, pady=2)
@@ -371,6 +371,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
                 f"{firstResult.reputation if firstResult.reputation is not None else ''}",
             )
             self.magicInfo.grid_remove()
+            self.signature.grid_remove()
         else:
             self.render_exception(
                 f"Unknown VirusTotal result type of `{firstResultType}`"
@@ -420,7 +421,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         # self.hostnames = CTkTable(self, column=2)
 
     def populate(self, data: AbuseObject):
-        self.title.grid(row=0, column=0, padx=4, pady=2)
+        self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=2)
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
         self.result.grid(row=3, column=0, padx=4, pady=2)
@@ -489,7 +490,7 @@ class DTSNISTCVEReport(widget.CTkFrame):
         self.rateMeter.set_mark(51, 75, "orange")
         self.rateMeter.set_mark(76, 100, "red")
 
-        self.desc = DTSLabelWithBtn(self, copy_btn=False)
+        self.desc = DTSLabelWithBtn(self, copy_btn=False, max_width=500)
         self.metrics = widget.CTkTextbox(
             self, font=widget.CTkFont(family="Consolas", size=14)
         )
@@ -506,12 +507,12 @@ class DTSNISTCVEReport(widget.CTkFrame):
 
     def populate(self, data: NISTObject):
         self.clear()
-        self.title.grid(row=0, column=0, padx=4, pady=2)
+        self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=2)
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
         self.result.grid(row=3, column=0, padx=4, pady=2)
         self.desc.grid(row=4, column=0, padx=30, pady=10, sticky="NSEW")
-        self.metrics.grid(row=5, column=0, padx=6, pady=10, sticky="NSEW")
+        self.metrics.grid(row=5, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW")
 
         self.title.configure(text="NIST's CVE Report")
 
@@ -525,9 +526,14 @@ class DTSNISTCVEReport(widget.CTkFrame):
             self.result.configure(text=f"Published on {firstCve.published}")
 
             desc = firstCve.descriptions[0].value
-            shortDesc = (
-                desc[: desc[:300].rindex(". ")] + " ..." if len(desc) > 300 else desc
-            )
+            if len(desc) > 450:
+                shortDesc = desc[:450]
+                if ". " in shortDesc:
+                    shortDesc = shortDesc[: shortDesc.rfind(". ")]
+                else:
+                    shortDesc += " ..."
+            else:
+                shortDesc = desc
 
             self.desc.set("Desc", shortDesc)
             if firstCve.metrics.cvssMetricV31 is not None:
@@ -552,34 +558,56 @@ class DTSTextReport(widget.CTkFrame):
         super().__init__(master, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
-        from PIL import Image
+        self.title = widget.CTkLabel(
+            self, justify="center", font=widget.CTkFont(size=18, weight="bold")
+        )
+        self.btnFrame = widget.CTkFrame(self)
+        self.btnFrame.grid_rowconfigure(0, weight=1)
 
         i = Image.open(resource_path("lib\\copy.png"))
         self.copyBtn = widget.CTkButton(
-            self,
+            self.btnFrame,
             text="Copy",
             width=30,
             height=20,
             image=widget.CTkImage(dark_image=i, light_image=i, size=(15, 15)),
+        )
+        ia = Image.open(resource_path("lib\\analyze.png"))
+        self.analyzeBtn = widget.CTkButton(
+            self.btnFrame,
+            text="Analyze",
+            width=30,
+            height=20,
+            image=widget.CTkImage(dark_image=ia, light_image=ia, size=(15, 15)),
         )
         self.textContent = widget.CTkTextbox(
             self, font=widget.CTkFont(family="Consolas", size=14)
         )
 
         self.copyBtn.bind("<Button-1>", command=self.cb_on_copy)
+        self.analyzeBtn.bind("<Button-1>", command=self.cb_on_analyze)
 
     def cb_on_copy(self, event):
         self.clipboard_clear()
         self.clipboard_append(self.textContent.get("0.0", "end"))
-        print("[base64report] decoded content copied")
+        print("[textreport] content copied")
 
-    def populate(self, result: str):
-        self.copyBtn.grid(row=0, column=0, padx=20, pady=10)
-        self.textContent.grid(
-            row=1, column=0, padx=5, pady=10, columnspan=1, rowspan=1, sticky="SWEN"
+    def cb_on_analyze(self, event):
+        self.master.master.master.cb_on_input_update(
+            source="textreport", text=self.textContent.get("0.0", "end")
         )
+
+    def populate(self, result: str, title="Text Report"):
+        self.title.grid(row=0, column=0, padx=4, pady=4)
+        self.copyBtn.grid(row=0, column=0, padx=20, pady=5)
+        self.analyzeBtn.grid(row=0, column=1, padx=20, pady=5)
+        self.btnFrame.grid(row=1, column=0, padx=20, pady=10)
+        self.textContent.grid(
+            row=2, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
+        )
+        self.title.configure(text=title)
         self.clear()
         self.textContent.insert("0.0", result)
 
@@ -595,11 +623,11 @@ class DTSLoading(widget.CTkFrame):
 
         self.loadingText = (
             "Loading",
+            "Fetching",
             "Thinking",
-            "Munching",
             "Hang in there",
             "Establishing network connection",
-            "Hmm let's see",
+            "Let's see",
         )
 
         self.loading = widget.CTkLabel(
@@ -631,6 +659,11 @@ class DTSLog(widget.CTkTextbox):
 
     def flush(self):
         pass
+
+    def persist(self, fname="log.txt"):
+        with open(fname, "wt+") as f:
+            f.write(self.get("0.0", "end"))
+            print(f"[log] wrote to disk as {fname}")
 
 
 class DTSTabView(widget.CTkTabview):
@@ -761,18 +794,20 @@ class DTSTabView(widget.CTkTabview):
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
 
-        elif source in ("base64", "dns", "rdns", "pcomputer", "mac"):
-            if source not in self.reports:
-                self.reports[source] = DTSTextReport(self.tab("Report"))
-                self.reports[source].grid(
+        elif source in ("base64", "dns", "rdns", "pcomputer", "mac", "ocr"):
+            if "text" not in self.reports:
+                self.reports["text"] = DTSTextReport(self.tab("Report"))
+                self.reports["text"].grid(
                     row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
                 )
+
+            title = f"Report for {source.upper()}"
 
             self.textBoxData.delete("0.0", "end")
             self.textBoxData.insert("0.0", "Nothing to show here ¯\_(ツ)_/¯")
 
-            self.hide_other_reports(except_for=source)
-            self.reports[source].populate(data)
+            self.hide_other_reports(except_for="text")
+            self.reports["text"].populate(data, title=title)
 
         # generic report if analyzer is not sure which item to proceed
         elif source == "analyzer":
@@ -876,6 +911,14 @@ class DTSPreferences(widget.CTkFrame):
             command=self.cb_on_setting_iconify_on_escape_click,
         )
         self.iconifyOnEscape.grid(row=2, column=0, pady=5)
+        self.curlDebug = widget.CTkSwitch(
+            self,
+            text="Show network debugging logs (program restart required)",
+            onvalue="true",
+            offvalue="false",
+            command=self.cb_on_setting_curl_debug_click,
+        )
+        self.curlDebug.grid(row=3, column=0, pady=5)
 
     def cb_on_btn_click(self, event):
         if self.aboutDialog is None or not self.aboutDialog.winfo_exists():
@@ -892,6 +935,11 @@ class DTSPreferences(widget.CTkFrame):
         self.config.set("ui", "iconify_on_escape", value)
         self.config.persist()
 
+    def cb_on_setting_curl_debug_click(self):
+        value = self.curlDebug.get()
+        self.config.set("general", "network_debug", value)
+        self.config.persist()
+
     def load(self):
         configAnalyzeOnFocus = self.config.get_analyze_on_focus()
         if configAnalyzeOnFocus:
@@ -899,6 +947,9 @@ class DTSPreferences(widget.CTkFrame):
         configIconifyOnEscape = self.config.get_iconify_on_escape()
         if configIconifyOnEscape:
             self.iconifyOnEscape.select()
+        configCurlDebug = self.config.get_network_debug()
+        if configCurlDebug:
+            self.curlDebug.select()
 
 
 class DTSToolBox(widget.CTk):
@@ -991,8 +1042,8 @@ class DTSToolBox(widget.CTk):
         hs = self.winfo_screenheight()
 
         x = (ws / 2) - 320
-        y = (hs / 2) - 160
-        self.geometry(f"640x320+{int(x)}+{int(y)}")
+        y = (hs / 2) - 400
+        self.geometry(f"640x800+{int(x)}+{int(y)}")
 
     def bind_events(self):
         self.bind("<FocusIn>", self.cb_on_focus)
@@ -1007,18 +1058,15 @@ class DTSToolBox(widget.CTk):
         self.navLeft.bind("<Button-1>", self.cb_on_nav_left)
         self.navRight.bind("<Button-1>", self.cb_on_nav_right)
 
-        # redirect stdout to log
+        # redirect stdout and stderr to log
         sys.stdout = self.tabView.textBoxLog
+        sys.stderr = self.tabView.textBoxLog
 
     # this function should only be called from workers to deliver data to the ui
     def render(self, source, box):
         print(f"[ui] data received from {source}")
         (id, originalText, data) = box
         if id == self.expectingDataId:
-            if source == "ocr":
-                self.cb_on_input_update(source=source, text=data)
-                return
-
             self.tabView.history.append((source, originalText, data))
             self.tabView.render_from_worker(source, originalText, data)
         else:
@@ -1166,6 +1214,7 @@ class DTSToolBox(widget.CTk):
     def exit_gracefully(self):
         # save configs
         self.config.persist()
+        self.tabView.textBoxLog.persist()
         print("[ui] exiting gracefully ...")
         self.destroy()
 

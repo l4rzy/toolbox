@@ -56,6 +56,13 @@ dimension = 640x800+800+378
     def get_proxy_config(self):
         val = self.get("general", "proxy_auth")
         return (self.get_proxy_string(), val)
+    
+    def get_network_debug(self):
+        val = self.get("general", "network_debug")
+        if val is None or val == "false":
+            return False
+        else:
+            return True
 
     def get_iconify_on_escape(self):
         val = self.get("ui", "iconify_on_escape")

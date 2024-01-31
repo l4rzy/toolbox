@@ -66,14 +66,18 @@ class DTSAnalyzer:
         self.total = 0
         self.insertable = False
         self.isComplex = False
+        self.correction = True
         self.dataClass = {}
 
     def process(self, source, text):
         self.reset()
         self.source = source
         # user can override lastText check
-        if text == self.lastText and source != "user":
+        if text == self.lastText and source not in ("user", "textreport"):
             return
+
+        if source == "textreport":
+            self.correction = False
 
         if len(text) > self.config.get_clipboard_max_length():
             print("[analyzer] clipboard content too big, skipping")

@@ -86,21 +86,22 @@ class Curl(CmdWrapper):
 
 
 class LibCurl:
-    def __init__(self, callback=None, proxyConfig=()):
+    def __init__(self, callback=None, proxyConfig=(), debug=False):
         self.callback = callback
         (self.proxy, self.auth) = proxyConfig
+        self.debug = debug
 
     def thread_fn(
-        self, id, originalText, url, callback, headers=None, cookies=None, debug=False
+        self, id, originalText, url, callback, headers=None, cookies=None
     ):
         handle = pycurl.Curl()
-        if debug:
+        if self.debug:
             handle.setopt(handle.VERBOSE, True)
         buffer = io.BytesIO()
 
         handle.setopt(
             handle.USERAGENT,
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/122.0",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
         )
         handle.setopt(handle.WRITEFUNCTION, buffer.write)
         handle.setopt(handle.URL, url)
@@ -191,7 +192,8 @@ class AbuseIPDB:
         self.apiKey = apiKey
         self.ui = ui  # a ref to UI object
         self.proxyConfig = self.ui.config.get_proxy_config()
-        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig)
+        self.curlDebug = self.ui.config.get_network_debug()
+        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug)
         self.running = False
 
     def query(self, id, text, maxAge=90):
@@ -220,7 +222,8 @@ class Shodan:
         self.apiKey = apiKey
         self.ui = ui
         self.proxyConfig = self.ui.config.get_proxy_config()
-        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig)
+        self.curlDebug = self.ui.config.get_network_debug()
+        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug)
 
     def query(self, id, text):
         url = f"https://api.shodan.io/shodan/host/{text}?key={self.apiKey}&minify=false"
@@ -277,7 +280,8 @@ class VirusTotal:
         self.ui = ui  # a ref to UI object
         self.apiKey = apiKey
         self.proxyConfig = self.ui.config.get_proxy_config()
-        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig)
+        self.curlDebug = self.ui.config.get_network_debug()
+        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug)
 
     def query(self, id, hash, options={}):
         headers = {"x-apikey": f"{self.apiKey}"}
@@ -298,10 +302,11 @@ class NISTCVE:
 
         self.ui = ui  # a ref to UI object
         self.proxyConfig = self.ui.config.get_proxy_config()
-        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig)
+        self.curlDebug = self.ui.config.get_network_debug()
+        self.curl = LibCurl(callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug)
 
     def query(self, id, cve, options={}):
-        url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve}"
+        url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve.upper()}"
         self.curl.query(id, cve, url)
 
 
@@ -364,7 +369,7 @@ class TesserOCR:
 
     def query(self, id, img):
         def thread_callback(id, response):
-            self.ui.render(source="ocr", box=(id, "Image from clipboard", response))
+            self.ui.render(source="ocr", box=(id, f"Image from clipboard {response[:10]}", response))
 
         t = threading.Thread(target=self.thread_fn, args=[id, img, thread_callback])
         t.daemon = True
