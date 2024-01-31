@@ -369,7 +369,7 @@ class TesserOCR:
 
     def query(self, id, img):
         def thread_callback(id, response):
-            self.ui.render(source="ocr", box=(id, f"Image from clipboard {response[:10]}", response))
+            self.ui.render(source="ocr", box=(id, f'Image from clipboard "{response[:10]}"', response))
 
         t = threading.Thread(target=self.thread_fn, args=[id, img, thread_callback])
         t.daemon = True

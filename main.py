@@ -262,7 +262,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
         super().__init__(master, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        # self.grid_rowconfigure(0, weight=1)
 
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
@@ -383,7 +383,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         super().__init__(master, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        #self.grid_rowconfigure(0, weight=1)
 
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
@@ -586,6 +586,14 @@ class DTSTextReport(widget.CTkFrame):
             self, font=widget.CTkFont(family="Consolas", size=14)
         )
 
+        self.title.grid(row=0, column=0, padx=4, pady=4, sticky="N")
+        self.copyBtn.grid(row=0, column=0, padx=20, pady=5)
+        self.analyzeBtn.grid(row=0, column=1, padx=20, pady=5)
+        self.btnFrame.grid(row=1, column=0, padx=20, pady=10, sticky="N")
+        self.textContent.grid(
+            row=2, column=0, padx=5, pady=5, rowspan=2, sticky="EWNS"
+        )
+
         self.copyBtn.bind("<Button-1>", command=self.cb_on_copy)
         self.analyzeBtn.bind("<Button-1>", command=self.cb_on_analyze)
 
@@ -600,13 +608,6 @@ class DTSTextReport(widget.CTkFrame):
         )
 
     def populate(self, result: str, title="Text Report"):
-        self.title.grid(row=0, column=0, padx=4, pady=4)
-        self.copyBtn.grid(row=0, column=0, padx=20, pady=5)
-        self.analyzeBtn.grid(row=0, column=1, padx=20, pady=5)
-        self.btnFrame.grid(row=1, column=0, padx=20, pady=10)
-        self.textContent.grid(
-            row=2, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
-        )
         self.title.configure(text=title)
         self.clear()
         self.textContent.insert("0.0", result)
@@ -619,7 +620,7 @@ class DTSLoading(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        # self.grid_rowconfigure(0, weight=1)
 
         self.loadingText = (
             "Loading",
@@ -682,6 +683,7 @@ class DTSTabView(widget.CTkTabview):
         self.tab("Data").grid_rowconfigure(0, weight=1)
 
         self.tab("Report").grid_columnconfigure(0, weight=1)
+        self.tab("Report").grid_rowconfigure(0, weight=1)       
 
         self.textBoxData = widget.CTkTextbox(
             self.tab("Data"), font=widget.CTkFont(family="Consolas", size=14)
@@ -1136,6 +1138,8 @@ class DTSToolBox(widget.CTk):
         ):
             self.lastImage = clipboardImg
             self.expectingDataId = uuid.uuid4().hex
+            
+            self.tabView.start_loading()
             self.worker.run(self.expectingDataId, ["ocr"], img=clipboardImg)
             return
 
