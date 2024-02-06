@@ -246,7 +246,7 @@ class DTSGenericReport(widget.CTkFrame):
         self.entries = []
 
     def populate(self, data, correction=False):
-        if correction is True or sum(len(data[c]) for c in data) == 1:
+        if correction is True:
             self.label.configure(text="Did you mean?")
         for type in data:
             for entry in set(data[type]):
@@ -383,7 +383,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         super().__init__(master, **kwargs)
 
         self.grid_columnconfigure(0, weight=1)
-        #self.grid_rowconfigure(0, weight=1)
+        # self.grid_rowconfigure(0, weight=1)
 
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
@@ -512,7 +512,9 @@ class DTSNISTCVEReport(widget.CTkFrame):
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
         self.result.grid(row=3, column=0, padx=4, pady=2)
         self.desc.grid(row=4, column=0, padx=30, pady=10, sticky="NSEW")
-        self.metrics.grid(row=5, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW")
+        self.metrics.grid(
+            row=5, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW"
+        )
 
         self.title.configure(text="NIST's CVE Report")
 
@@ -590,9 +592,7 @@ class DTSTextReport(widget.CTkFrame):
         self.copyBtn.grid(row=0, column=0, padx=20, pady=5)
         self.analyzeBtn.grid(row=0, column=1, padx=20, pady=5)
         self.btnFrame.grid(row=1, column=0, padx=20, pady=10, sticky="N")
-        self.textContent.grid(
-            row=2, column=0, padx=5, pady=5, rowspan=2, sticky="EWNS"
-        )
+        self.textContent.grid(row=2, column=0, padx=5, pady=5, rowspan=2, sticky="EWNS")
 
         self.copyBtn.bind("<Button-1>", command=self.cb_on_copy)
         self.analyzeBtn.bind("<Button-1>", command=self.cb_on_analyze)
@@ -683,7 +683,7 @@ class DTSTabView(widget.CTkTabview):
         self.tab("Data").grid_rowconfigure(0, weight=1)
 
         self.tab("Report").grid_columnconfigure(0, weight=1)
-        self.tab("Report").grid_rowconfigure(0, weight=1)       
+        self.tab("Report").grid_rowconfigure(0, weight=1)
 
         self.textBoxData = widget.CTkTextbox(
             self.tab("Data"), font=widget.CTkFont(family="Consolas", size=14)
@@ -714,7 +714,7 @@ class DTSTabView(widget.CTkTabview):
         self.textBoxLog = DTSLog(
             self.tab("Log"), font=widget.CTkFont(family="Consolas", size=14)
         )
-        self.textBoxLog.insert("0.0", "This is the start of your log\n---\n")
+        self.textBoxLog.insert("0.0", "This is the beginning of your log\n---\n")
         self.textBoxLog.grid(
             row=0, column=0, padx=5, pady=5, columnspan=1, rowspan=1, sticky="SWEN"
         )
@@ -754,7 +754,6 @@ class DTSTabView(widget.CTkTabview):
             self.set("Report")
             return
 
-        self.stop_loading()
         self.set("Report")
         # todo: factoring out common code patterns
         if source == "abuseipdb":
@@ -1067,12 +1066,16 @@ class DTSToolBox(widget.CTk):
     # this function should only be called from workers to deliver data to the ui
     def render(self, source, box):
         print(f"[ui] data received from {source}")
+        self.tabView.stop_loading()
         (id, originalText, data) = box
-        if id == self.expectingDataId:
-            self.tabView.history.append((source, originalText, data))
-            self.tabView.render_from_worker(source, originalText, data)
-        else:
+        if data is None:
+            print("[ui] data is None")
+        elif id != self.expectingDataId:
             print("[ui] data dropped due to expiration")
+        else:
+            if source != "analyzer":
+                self.tabView.history.append((source, originalText, data))
+            self.tabView.render_from_worker(source, originalText, data)
 
     # add events to app
     def cb_on_close(self):
@@ -1138,7 +1141,7 @@ class DTSToolBox(widget.CTk):
         ):
             self.lastImage = clipboardImg
             self.expectingDataId = uuid.uuid4().hex
-            
+
             self.tabView.start_loading()
             self.worker.run(self.expectingDataId, ["ocr"], img=clipboardImg)
             return
