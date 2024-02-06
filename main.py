@@ -16,7 +16,7 @@ import secrets
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 3
-VERSION_PATCH = 1
+VERSION_PATCH = 2
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -236,6 +236,7 @@ class DTSGenericReport(widget.CTkFrame):
         self.label.grid(row=1, column=0, padx=4, pady=5)
         self.entries = []
         self.row = 2
+        self.maxRow = 12
         self.reset()
 
     def reset(self):
@@ -250,6 +251,9 @@ class DTSGenericReport(widget.CTkFrame):
             self.label.configure(text="Did you mean?")
         for type in data:
             for entry in set(data[type]):
+                if self.row == self.maxRow:
+                    print('[greport] max row reached, aborting ...')
+                    return
                 e = DTSLabelWithBtn(self, copy_btn=True, analyze_btn=True)
                 e.set(label=type, content=entry)
                 e.grid(row=self.row, column=0, padx=4, pady=10)
@@ -673,6 +677,7 @@ class DTSTabView(widget.CTkTabview):
         self.tabNames = ("Report", "Data", "History", "Log", "Preferences")
         self.reports = {}
         self.lastData = 0
+        self.currentReport = ''
         self.config = config
 
         for name in self.tabNames:
@@ -728,6 +733,9 @@ class DTSTabView(widget.CTkTabview):
     def stop_loading(self):
         self.loading.hide()
 
+    def show_previous_report(self):
+        self.hide_other_reports(except_for=self.currentReport)
+
     def start_loading(self):
         # hide other widgets
         self.hide_other_reports(except_for=None)  # this will hide all reports
@@ -751,6 +759,7 @@ class DTSTabView(widget.CTkTabview):
     def render_from_worker(self, source, originalText, data):
         if f"{source}-{originalText}" == self.lastData:
             print("[tabview] duplicated data, will not render again")
+            self.show_previous_report()
             self.set("Report")
             return
 
@@ -768,6 +777,7 @@ class DTSTabView(widget.CTkTabview):
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
+            self.currentReport = source
 
         elif source == "virustotal":
             if source not in self.reports:
@@ -781,6 +791,7 @@ class DTSTabView(widget.CTkTabview):
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
+            self.currentReport = source
 
         elif source == "cve":
             if source not in self.reports:
@@ -794,6 +805,7 @@ class DTSTabView(widget.CTkTabview):
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
+            self.currentReport = source
 
         elif source in ("base64", "dns", "rdns", "pcomputer", "mac", "ocr"):
             if "text" not in self.reports:
@@ -809,6 +821,7 @@ class DTSTabView(widget.CTkTabview):
 
             self.hide_other_reports(except_for="text")
             self.reports["text"].populate(data, title=title)
+            self.currentReport = 'text'
 
         # generic report if analyzer is not sure which item to proceed
         elif source == "analyzer":
@@ -824,6 +837,7 @@ class DTSTabView(widget.CTkTabview):
             self.hide_other_reports(except_for=source)
             self.reports[source].reset()
             self.reports[source].populate(data)
+            self.currentReport = source
 
         else:
             print(f"[ui] can't render from `{source}` with data = `{data}`")

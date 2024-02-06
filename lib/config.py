@@ -57,6 +57,12 @@ dimension = 640x800+800+378
         val = self.get("general", "proxy_auth")
         return (self.get_proxy_string(), val)
     
+    def get_local_ip_db(self) -> str:
+        val = self.get("general", "localipdb")
+        if val is None:
+            val = "localIPDB.csv"
+        return val
+    
     def get_network_debug(self):
         val = self.get("general", "network_debug")
         if val is None or val == "false":

@@ -11,7 +11,8 @@ from .util import resource_path
 from .structure import AbuseObject, VirusTotalObject, ShodanObject, NISTObject
 import ouilookup
 import ipaddress
-
+import csv
+from functools import cache
 
 class CmdWrapper:
     def __init__(self, exe=""):
@@ -199,6 +200,7 @@ class AbuseIPDB:
         )
         self.running = False
 
+    @cache
     def query(self, id, text, maxAge=90):
         headers = {
             "Key": self.apiKey,
@@ -235,34 +237,41 @@ class Shodan:
         self.curl.query(id, text, url)
 
 
-class DnsResolver:
+class LocalIPWizard:
     def __init__(self, ui):
         self.ui = ui
+        ipdb = ui.config.get_local_ip_db()
+        self.ipInfo = LocalIpInfo(dataFile=ipdb)
 
-    def thread_fn(self, id, hname, callback, reverse):
+    def thread_fn(self, id, host, callback, reverse):
         import socket
 
+        ipInfo = ""
+        resp = ""
         try:
+            socket.setdefaulttimeout(0.1)
             if reverse:
-                res = socket.gethostbyaddr(hname)[0]
+                ipInfo = self.ipInfo.query(host)
+                resp = socket.gethostbyaddr(host)[0]
             else:
-                res = socket.gethostbyname(hname)
-        except Exception:
-            res = ""
-        callback(id, res)
+                resp = socket.gethostbyname(host)
+                ipInfo = self.ipInfo.query(resp)
+        except Exception as e:
+            print(f'[wizard] error: {e}')
+        callback(id, (resp, ipInfo))
 
-    def parse(self, text):
-        return text
-
-    def query(self, id, hname, reverse=False):
+    @cache
+    def query(self, id, host, reverse=False):
         def thread_callback(id, response):
-            result = self.parse(response)
-            if result == "":
-                result = f"{hname} was not resolvable."
-            self.ui.render(source="dns", box=(id, hname, result))
+            if response == ("", ""):
+                result = f"{host} was not resolvable."
+            else:
+                (resp, ipInfo) = response
+                result = f"{host} resolved to {resp if resp != '' else 'None'}\n{ipInfo}"
+            self.ui.render(source="dns", box=(id, host, result))
 
         t = threading.Thread(
-            target=self.thread_fn, args=[id, hname, thread_callback, reverse]
+            target=self.thread_fn, args=[id, host, thread_callback, reverse]
         )
         t.daemon = True
         t.start()
@@ -290,6 +299,7 @@ class VirusTotal:
             callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug
         )
 
+    @cache
     def query(self, id, hash, options={}):
         headers = {"x-apikey": f"{self.apiKey}"}
 
@@ -314,6 +324,7 @@ class NISTCVE:
             callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug
         )
 
+    @cache
     def query(self, id, cve, options={}):
         url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve.upper()}"
         self.curl.query(id, cve, url)
@@ -322,7 +333,7 @@ class NISTCVE:
 class MacAddress:
     def __init__(self, ui):
         self.ui = ui
-        self.handle = ouilookup.OuiLookup()
+        self.handle = ouilookup.OuiLookup(data_file=resource_path("data\\ouilookup.json"))
 
     def thread_fn(self, id, mac, callback):
         try:
@@ -344,21 +355,22 @@ class MacAddress:
         t.start()
 
 
-class LocalIpLookup:
-    def __init__(self, ui):
-        self.ui = ui
-        self.db = {
-            "127.0.0.1/32": "your local machine",
-            "192.168.0.0/24": "Guest Wifi on floor 12 at 215 Gary St.",
-            "10.140.0.0/16": "MBGOV on suite 1200 215 Gary St.",
-        }
+class LocalIpInfo:
+    def __init__(self, dataFile):
+        self.db = None
+        self.dataFile = dataFile
 
-    def query(self, id, ip):
+    def query(self, ip):
+        if self.db is None:
+            file = open(self.dataFile, "rt")
+            reader = csv.reader(file, delimiter=",")
+            # schema cidr,usage,location,comment
+            self.db = list(reader)
         res = f"Local IP {ip} not found in database!"
-        for subnet, place in self.db.items():
-            if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(subnet):
-                res = f"Local IP Address {ip} belongs to {subnet} @ {place}"
-        self.ui.render(source="localip", box=(id, ip, res))
+        for row in self.db:
+            if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(row[0]):
+                res = f"Local IP Address {ip} belongs to {row[0]}\nUsed for: {row[1]}\nLocated at: {row[2]}\nComment: {row[3]}"
+        return res
 
 
 class TesserOCR:
@@ -404,7 +416,7 @@ class DTSWorker:
         self.netUser = NetUser(ui=self.ui)
         self.base64Decoder = Base64Decoder(ui=self.ui)
         # self.shodan = Shodan(apiKey=shodanAPIKey, ui=self.ui)
-        self.dnsResolver = DnsResolver(ui=self.ui)
+        self.localIPWizard = LocalIPWizard(ui=self.ui)
         self.macAddressLookup = MacAddress(ui=self.ui)
         self.ocrApi = TesserOCR(ui=self.ui)
 
@@ -422,9 +434,9 @@ class DTSWorker:
             elif t == "base64":
                 self.base64Decoder.query(id, text)
             elif t == "dns":
-                self.dnsResolver.query(id, text)
+                self.localIPWizard.query(id, text)
             elif t == "rdns":
-                self.dnsResolver.query(id, text, reverse=True)
+                self.localIPWizard.query(id, text, reverse=True)
             elif t == "mac":
                 self.macAddressLookup.query(id, text)
             elif t == "ocr":
