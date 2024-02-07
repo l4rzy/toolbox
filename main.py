@@ -187,7 +187,7 @@ class DTSHistory(CTkListbox):
 
     def append(self, data):
         # don't save generic report to history, but save to navigation
-        if not self.historyClick and data[0] != 'analyzer':
+        if not self.historyClick and data[0] != "analyzer":
             (hashStr, hashStrDigest) = self.make_hash(data)
 
             self.insert(self.index, hashStr)
@@ -254,7 +254,7 @@ class DTSGenericReport(widget.CTkFrame):
         for type in data:
             for entry in set(data[type]):
                 if self.row == self.maxRow:
-                    print('[greport] max row reached, aborting ...')
+                    print("[greport] max row reached, aborting ...")
                     return
                 e = DTSLabelWithBtn(self, copy_btn=True, analyze_btn=True)
                 e.set(label=type, content=entry)
@@ -357,7 +357,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
             self.signature.set(
                 "Signed binary",
                 content=f"Signed by {signature.signers} on {signature.signing_date if signature.signing_date is not None else 'date unknown'}"
-                if signature.verified is not None
+                if (signature is not None and signature.verified is not None)
                 else "No",
             )
 
@@ -679,7 +679,7 @@ class DTSTabView(widget.CTkTabview):
         self.tabNames = ("Report", "Data", "History", "Log", "Preferences")
         self.reports = {}
         self.lastData = 0
-        self.currentReport = ''
+        self.currentReport = ""
         self.config = config
 
         for name in self.tabNames:
@@ -823,7 +823,7 @@ class DTSTabView(widget.CTkTabview):
 
             self.hide_other_reports(except_for="text")
             self.reports["text"].populate(data, title=title)
-            self.currentReport = 'text'
+            self.currentReport = "text"
 
         # generic report if analyzer is not sure which item to proceed
         elif source == "analyzer":
@@ -1151,8 +1151,10 @@ class DTSToolBox(widget.CTk):
             return
 
         clipboardImg = ImageGrab.grabclipboard()
-        if clipboardImg is not None and not isinstance(clipboardImg,list) and (
-            self.lastImage is None or clipboardImg.size != self.lastImage.size
+        if (
+            clipboardImg is not None
+            and not isinstance(clipboardImg, list)
+            and (self.lastImage is None or clipboardImg.size != self.lastImage.size)
         ):
             self.lastImage = clipboardImg
             self.expectingDataId = uuid.uuid4().hex
