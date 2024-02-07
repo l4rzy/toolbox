@@ -73,10 +73,18 @@ class DTSAnalyzer:
         self.dataClass = {}
 
     def process(self, source, text):
-        self.reset()
         self.source = source
         # user can override lastText check
         if text == self.lastText and source not in ("user", "textreport"):
+            return
+        
+        # from user button in generic report, do nothing
+        if source == "generic":
+            self.reset()
+            self.correction = False
+            self.text = text
+            self.content = text
+            self.insertable = True
             return
 
         if source == "textreport":
@@ -87,6 +95,7 @@ class DTSAnalyzer:
             return
 
         print(f"[analyzer] analyzing `{text}`")
+        self.reset()
         self.text = text
         self.total = 0
         lastOne = ""

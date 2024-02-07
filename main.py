@@ -16,7 +16,8 @@ import secrets
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 3
-VERSION_PATCH = 2
+VERSION_PATCH = 4
+VERSION_DATE = "2024 Feb 06"
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -115,7 +116,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
     def cb_on_analyze_btn_click(self, event):
         # bad code, but since tkinter doesnt allow event from child to parent
         self.master.master.master.master.cb_on_input_update(
-            source="user", text=self.content.cget("text")
+            source="generic", text=self.content.cget("text")
         )
 
     def set(self, label, content):
@@ -185,7 +186,8 @@ class DTSHistory(CTkListbox):
         return (hexstr, hash_str(hexstr))
 
     def append(self, data):
-        if not self.historyClick:
+        # don't save generic report to history, but save to navigation
+        if not self.historyClick and data[0] != 'analyzer':
             (hashStr, hashStrDigest) = self.make_hash(data)
 
             self.insert(self.index, hashStr)
@@ -867,7 +869,7 @@ class DTSAboutDialog(widget.CTkToplevel):
         self.line1 = widget.CTkLabel(
             self,
             font=widget.CTkFont(size=18),
-            text=f"DTS Toolbox - version {VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}",
+            text=f"DTS Toolbox - v{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH} ({VERSION_DATE})",
         )
         self.line2 = widget.CTkLabel(
             self, font=widget.CTkFont(size=14), text="Original author: Duc Lam Nguyen"
@@ -891,7 +893,6 @@ class DTSAboutDialog(widget.CTkToplevel):
             row=3, column=0, padx=10, pady=2, columnspan=1, rowspan=1, sticky="SWEN"
         )
 
-        self.focus()
         self.bind("<FocusOut>", self.cb_on_focus_out)
 
     def cb_on_focus_out(self, event):
@@ -1084,11 +1085,11 @@ class DTSToolBox(widget.CTk):
         (id, originalText, data) = box
         if data is None:
             print("[ui] data is None")
+            self.tabView.show_previous_report()
         elif id != self.expectingDataId:
             print("[ui] data dropped due to expiration")
         else:
-            if source != "analyzer":
-                self.tabView.history.append((source, originalText, data))
+            self.tabView.history.append((source, originalText, data))
             self.tabView.render_from_worker(source, originalText, data)
 
     # add events to app
@@ -1150,7 +1151,7 @@ class DTSToolBox(widget.CTk):
             return
 
         clipboardImg = ImageGrab.grabclipboard()
-        if clipboardImg is not None and (
+        if clipboardImg is not None and not isinstance(clipboardImg,list) and (
             self.lastImage is None or clipboardImg.size != self.lastImage.size
         ):
             self.lastImage = clipboardImg

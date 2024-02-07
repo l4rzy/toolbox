@@ -13,6 +13,8 @@ import ouilookup
 import ipaddress
 import csv
 from functools import cache
+import dns.resolver as dresolver
+import dns.reversename as dreverse
 
 class CmdWrapper:
     def __init__(self, exe=""):
@@ -169,8 +171,6 @@ class Base64Decoder:
         try:
             result = base64.b64decode(s.encode("utf-8"))
             decodedText = result.decode("utf-8")  # will add detection later
-            if decodedText.isprintable() is not True:
-                decodedText = None
         except Exception as e:
             print(f"[base64decoder] encounter error: {e}")
             decodedText = None
@@ -242,19 +242,18 @@ class LocalIPWizard:
         self.ui = ui
         ipdb = ui.config.get_local_ip_db()
         self.ipInfo = LocalIpInfo(dataFile=ipdb)
+        self.resolver = dresolver.Resolver()
 
     def thread_fn(self, id, host, callback, reverse):
-        import socket
-
         ipInfo = ""
         resp = ""
         try:
-            socket.setdefaulttimeout(0.1)
             if reverse:
                 ipInfo = self.ipInfo.query(host)
-                resp = socket.gethostbyaddr(host)[0]
+                addr = dreverse.from_address(host)
+                resp = self.resolver.resolve(addr, 'PTR')[0]
             else:
-                resp = socket.gethostbyname(host)
+                resp = self.resolver.resolve(host)[0]
                 ipInfo = self.ipInfo.query(resp)
         except Exception as e:
             print(f'[wizard] error: {e}')
@@ -267,7 +266,7 @@ class LocalIPWizard:
                 result = f"{host} was not resolvable."
             else:
                 (resp, ipInfo) = response
-                result = f"{host} resolved to {resp if resp != '' else 'None'}\n{ipInfo}"
+                result = f"{host} resolved to {resp if resp != '' else 'None'}\n---\n{ipInfo}"
             self.ui.render(source="dns", box=(id, host, result))
 
         t = threading.Thread(
@@ -366,10 +365,16 @@ class LocalIpInfo:
             reader = csv.reader(file, delimiter=",")
             # schema cidr,usage,location,comment
             self.db = list(reader)
+            file.close()
         res = f"Local IP {ip} not found in database!"
+
         for row in self.db:
-            if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(row[0]):
-                res = f"Local IP Address {ip} belongs to {row[0]}\nUsed for: {row[1]}\nLocated at: {row[2]}\nComment: {row[3]}"
+            try:
+                if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(row[0]):
+                    res = f"Local IP Address {ip} belongs to {row[0]}\nUsed for: {row[1]}\nLocated at: {row[2]}\nComment: {row[3]}"
+            except Exception:
+                continue
+
         return res
 
 
@@ -378,7 +383,7 @@ class TesserOCR:
         from tesserocr import PyTessBaseAPI
 
         self.ui = ui
-        self.api = PyTessBaseAPI(path=resource_path("data"))
+        self.api = PyTessBaseAPI("data")
 
     def thread_fn(self, id, img, callback):
         try:
