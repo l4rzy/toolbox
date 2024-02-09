@@ -57,6 +57,7 @@ class DTSAnalyzer:
         self.isComplex = False
         self.correction = True
         self.skipped = False
+        self.message = ""
         self.dataClass = {}
 
     def process(self, source, text):
@@ -71,6 +72,12 @@ class DTSAnalyzer:
             DTSInputSource.TEXT_REPORT,
         ):
             self.skipped = True
+            self.message = "Nothing new!"
+            return
+
+        if text == "":
+            self.skipped = True
+            self.message = "Empty input!"
             return
 
         self.source = source
@@ -87,7 +94,7 @@ class DTSAnalyzer:
         if source == DTSInputSource.TEXT_REPORT:
             self.correction = False
 
-        print(f"[analyzer] analyzing `{text}`")
+        print(f"[analyzer] analyzing `{text[:30]}...`")
         self.reset()
         self.text = text
         self.total = 0

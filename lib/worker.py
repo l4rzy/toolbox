@@ -15,6 +15,7 @@ import csv
 from functools import cache
 import socket
 
+
 class CmdWrapper:
     def __init__(self, exe=""):
         self.exe = exe
@@ -248,12 +249,12 @@ class LocalIPWizard:
         try:
             if reverse:
                 ipInfo = self.ipInfo.query(host)
-                resp = socket.gethostbyaddr(host)
+                resp = socket.gethostbyaddr(host)[0]
             else:
                 resp = socket.gethostbyname(host)
                 ipInfo = self.ipInfo.query(resp)
         except Exception as e:
-            print(f'[wizard] error: {e}')
+            print(f"[wizard] error: {e}")
         callback(id, (resp, ipInfo))
 
     @cache
@@ -329,7 +330,9 @@ class NISTCVE:
 class MacAddress:
     def __init__(self, ui):
         self.ui = ui
-        self.handle = ouilookup.OuiLookup(data_file=resource_path("data\\ouilookup.json"))
+        self.handle = ouilookup.OuiLookup(
+            data_file=resource_path("data\\ouilookup.json")
+        )
 
     def thread_fn(self, id, mac, callback):
         try:

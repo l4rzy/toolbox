@@ -25,7 +25,7 @@ from collections import deque
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 3
-VERSION_PATCH = 4
+VERSION_PATCH = 5
 VERSION_DATE = "2024 Feb 08"
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
@@ -181,7 +181,7 @@ class DTSHistory(CTkListbox):
                 return
 
         originalText = self.items[hash_str(item)]
-        self.mainUI.cb_on_input_update(text=originalText)
+        self.mainUI.cb_on_input_update(source="history", text=originalText)
         self.historyClick = False
 
     def make_hash(self, data):
@@ -616,6 +616,7 @@ class DTSTextReport(widget.CTkFrame):
     def cb_on_copy(self, event):
         self.clipboard_clear()
         self.clipboard_append(self.textContent.get("0.0", "end"))
+        self.master.master.master.notify("Text copied")
         print("[textreport] content copied")
 
     def cb_on_analyze(self, event):
@@ -746,7 +747,8 @@ class DTSTabView(widget.CTkTabview):
         self.loading.hide()
 
     def show_previous_report(self):
-        self.hide_other_reports(except_for=self.currentReport)
+        if self.currentReport != "":
+            self.hide_other_reports(except_for=self.currentReport)
 
     def start_loading(self):
         # hide other widgets
@@ -1044,7 +1046,7 @@ class DTSToolBox(widget.CTk):
         self.lastImage = None
 
     def clear_search_bar(self):
-        self.searchBar.delete(0, len(self.searchBar.get()))
+        self.searchBar.delete(0, "end")
 
     def update_search_bar(self):
         self.tabView.update_history(self.analyzer.content)
@@ -1052,6 +1054,17 @@ class DTSToolBox(widget.CTk):
             return
         self.clear_search_bar()
         self.searchBar.insert(0, self.analyzer.content)
+
+    def notify(self, message, last=800):
+        lastSearchBar = self.searchBar.get()
+        self.clear_search_bar()
+
+        def restore():
+            self.clear_search_bar()
+            self.searchBar.insert(0, lastSearchBar)
+
+        self.searchBar.insert(0, message)
+        self.searchBar.after(last, restore)
 
     def update_top_bar(self):
         self.update_nav()
@@ -1114,20 +1127,18 @@ class DTSToolBox(widget.CTk):
     def cb_on_nav_left(self, event):
         previousData = self.tabView.history.nav_backward()
         if previousData is None:
-            print("[ui] nothing to go backward")
+            print("[ui] nothing to go backward to")
             return
         else:
-            print("[ui] going backward")
             (source, originalText, data) = previousData
             self.tabView.render_from_worker(source, originalText, data)
 
     def cb_on_nav_right(self, event):
         previousData = self.tabView.history.nav_forward()
         if previousData is None:
-            print("[ui] nothing to go forward")
+            print("[ui] nothing to go forward to")
             return
         else:
-            print("[ui] going forward")
             (source, originalText, data) = previousData
             self.tabView.render_from_worker(source, originalText, data)
 
@@ -1187,6 +1198,7 @@ class DTSToolBox(widget.CTk):
         self.analyzer.process(source, text)
 
         if self.analyzer.skipped:
+            self.notify(self.analyzer.message)
             return
 
         if not self.analyzer.has_complex_data():
@@ -1241,6 +1253,7 @@ class DTSToolBox(widget.CTk):
             self.worker.run(self.expectingDataId, ["mac"], self.analyzer.content)
 
         else:
+            self.notify("I didn't find anything")
             self.tabView.stop_loading()
 
     def exit_gracefully(self):
