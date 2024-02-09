@@ -1,8 +1,8 @@
-from enum import Enum
 import re
 from .config import DTSConfig
 import ipaddress
 import validators
+from .structure import DTSInputSource
 
 # stolen from https://ihateregex.io/expr/ip/
 IPV4ADDR = r"\b((25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3})\b"
@@ -27,20 +27,6 @@ URL = r"(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(
 BASE64 = re.compile(
     r"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$"
 )
-
-
-# todo: switch to enum instead of strings
-class DataClass(Enum):
-    IPV4ADDR = 0
-    IPV6ADDR = 1
-    SHA256HASH = 2
-    SHA1HASH = 3
-    MD5HASH = 4
-    BASE64 = 5
-    PCOMPUTER = 6
-    USER = 7
-    DOMAIN = 8
-    INTERNALIP = 9
 
 
 class DTSAnalyzer:
@@ -70,16 +56,27 @@ class DTSAnalyzer:
         self.insertable = False
         self.isComplex = False
         self.correction = True
+        self.skipped = False
         self.dataClass = {}
 
     def process(self, source, text):
-        self.source = source
-        # user can override lastText check
-        if text == self.lastText and source not in ("user", "textreport"):
+        if len(text) > self.config.get_clipboard_max_length():
+            print("[analyzer] clipboard content too big, skipping")
             return
-        
-        # from user button in generic report, do nothing
-        if source == "generic":
+
+        # user can override lastText check
+        if text == self.lastText and source not in (
+            DTSInputSource.USER,
+            DTSInputSource.GENERIC_REPORT,
+            DTSInputSource.TEXT_REPORT,
+        ):
+            self.skipped = True
+            return
+
+        self.source = source
+        self.lastText = text
+        # from user button in generic report, no need to do further analysis
+        if source == DTSInputSource.GENERIC_REPORT:
             self.reset()
             self.correction = False
             self.text = text
@@ -87,12 +84,8 @@ class DTSAnalyzer:
             self.insertable = True
             return
 
-        if source == "textreport":
+        if source == DTSInputSource.TEXT_REPORT:
             self.correction = False
-
-        if len(text) > self.config.get_clipboard_max_length():
-            print("[analyzer] clipboard content too big, skipping")
-            return
 
         print(f"[analyzer] analyzing `{text}`")
         self.reset()
@@ -106,7 +99,6 @@ class DTSAnalyzer:
                 lastOne = occurences[0]
                 self.total += len(occurences)
                 self.dataClass[type] = occurences
-        self.lastText = text
 
         if self.total > 1:
             self.isComplex = True
@@ -151,13 +143,17 @@ class DTSAnalyzer:
         return BASE64.match(self.text)
 
     def is_cve(self):
-        return any(item in self.dataClass for item in ["cve"])
+        return any(item in self.dataClass for item in ["cve"]) or self.categorizers[
+            "cve"
+        ].match(self.text)
 
     def is_user(self):
         return any(item in self.dataClass for item in ["user"])
 
     def is_pcomputer(self):
-        return any(item in self.dataClass for item in ["pcomputer"])
+        return any(
+            item in self.dataClass for item in ["pcomputer"]
+        ) or self.categorizers["pcomputer"].match(self.text)
 
     def is_url(self):
         return self.truefalse(validators.url) or self.truefalse(validators.domain)

@@ -8,16 +8,25 @@ from lib.tkdial import Meter
 from lib.CTkListbox import CTkListbox
 from iso3166 import countries
 from lib.util import resource_path, hash_str
-from lib.structure import AbuseObject, VirusTotalObject, VTAttributes, NISTObject
+from lib.structure import (
+    AbuseObject,
+    VirusTotalObject,
+    VTAttributes,
+    NISTObject,
+    DTSInputSource,
+)
 import signal
 import sys
 from PIL import Image, ImageGrab
 import secrets
 
+# for navigation
+from collections import deque
+
 VERSION_MAJOR = 0
 VERSION_MINOR = 3
 VERSION_PATCH = 4
-VERSION_DATE = "2024 Feb 06"
+VERSION_DATE = "2024 Feb 08"
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -116,7 +125,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
     def cb_on_analyze_btn_click(self, event):
         # bad code, but since tkinter doesnt allow event from child to parent
         self.master.master.master.master.cb_on_input_update(
-            source="generic", text=self.content.cget("text")
+            source=DTSInputSource.GENERIC_REPORT, text=self.content.cget("text")
         )
 
     def set(self, label, content):
@@ -154,9 +163,6 @@ class DTSHistory(CTkListbox):
         self.mainUI: DTSToolBox = mainUI
         self.historyClick = False  # workaround
 
-        # for navigation
-        from collections import deque
-
         self.navigationMax = 10
         self.navigation = deque([None] * self.navigationMax, maxlen=self.navigationMax)
         self.navigationIndex = 0
@@ -193,6 +199,10 @@ class DTSHistory(CTkListbox):
             self.insert(self.index, hashStr)
             self.items[hashStrDigest] = data[1]
             self.index += 1
+
+        # check if the lastest item in navigation is equal to new data
+        if self.navigation[self.navigationIndex] == data:
+            return
 
         if self.navigationIndex == 0 and self.navigation[self.navigationIndex] is None:
             self.navigation[0] = data
@@ -610,7 +620,7 @@ class DTSTextReport(widget.CTkFrame):
 
     def cb_on_analyze(self, event):
         self.master.master.master.cb_on_input_update(
-            source="textreport", text=self.textContent.get("0.0", "end")
+            source=DTSInputSource.TEXT_REPORT, text=self.textContent.get("0.0", "end")
         )
 
     def populate(self, result: str, title="Text Report"):
@@ -1101,11 +1111,6 @@ class DTSToolBox(widget.CTk):
         if self.config.get_iconify_on_escape() is True:
             self.iconify()
 
-    def cb_on_dropdown_focus(self, event):
-        if event.widget == self.searchDropdown:
-            print("[+] focused on dropdown")
-            self.dropdownFocus = True
-
     def cb_on_nav_left(self, event):
         previousData = self.tabView.history.nav_backward()
         if previousData is None:
@@ -1172,14 +1177,17 @@ class DTSToolBox(widget.CTk):
             print("[ui] nothing or nothing new to analyze")
             return
 
-        self.cb_on_input_update(source="clipboard", text=clipboard)
+        self.cb_on_input_update(source=DTSInputSource.CLIPBOARD, text=clipboard)
 
     def cb_on_entry_update(self, event=None):
         text = self.searchBar.get().strip()
-        self.cb_on_input_update(source="user", text=text)
+        self.cb_on_input_update(source=DTSInputSource.USER, text=text)
 
-    def cb_on_input_update(self, source="", text=""):
+    def cb_on_input_update(self, source, text):
         self.analyzer.process(source, text)
+
+        if self.analyzer.skipped:
+            return
 
         if not self.analyzer.has_complex_data():
             self.dispatch_work()

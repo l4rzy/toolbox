@@ -13,8 +13,7 @@ import ouilookup
 import ipaddress
 import csv
 from functools import cache
-import dns.resolver as dresolver
-import dns.reversename as dreverse
+import socket
 
 class CmdWrapper:
     def __init__(self, exe=""):
@@ -242,7 +241,6 @@ class LocalIPWizard:
         self.ui = ui
         ipdb = ui.config.get_local_ip_db()
         self.ipInfo = LocalIpInfo(dataFile=ipdb)
-        self.resolver = dresolver.Resolver()
 
     def thread_fn(self, id, host, callback, reverse):
         ipInfo = ""
@@ -250,10 +248,9 @@ class LocalIPWizard:
         try:
             if reverse:
                 ipInfo = self.ipInfo.query(host)
-                addr = dreverse.from_address(host)
-                resp = self.resolver.resolve(addr, 'PTR')[0]
+                resp = socket.gethostbyaddr(host)
             else:
-                resp = self.resolver.resolve(host)[0]
+                resp = socket.gethostbyname(host)
                 ipInfo = self.ipInfo.query(resp)
         except Exception as e:
             print(f'[wizard] error: {e}')

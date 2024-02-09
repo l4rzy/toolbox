@@ -1,8 +1,30 @@
 from __future__ import annotations
+from enum import Enum
 
 from typing import Any, List, Optional, Dict
 
 from pydantic import BaseModel, Field
+
+
+class DTSInputSource(Enum):
+    USER = 0
+    CLIPBOARD = 1
+    GENERIC_REPORT = 2
+    TEXT_REPORT = 3
+    ANALYZER = 4
+
+
+class DataClass(Enum):
+    IPV4ADDR = 0
+    IPV6ADDR = 1
+    SHA256HASH = 2
+    SHA1HASH = 3
+    MD5HASH = 4
+    BASE64 = 5
+    PCOMPUTER = 6
+    USER = 7
+    DOMAIN = 8
+    INTERNALIP = 9
 
 
 class AbuseDataObject(BaseModel):
