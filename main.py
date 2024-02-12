@@ -25,8 +25,8 @@ from collections import deque
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 3
-VERSION_PATCH = 5
-VERSION_DATE = "2024 Feb 08"
+VERSION_PATCH = 6
+VERSION_DATE = "2024 Feb 12"
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -1043,7 +1043,8 @@ class DTSToolBox(widget.CTk):
         self.worker = DTSWorker(self.config, self)
         ## internal states
         self.expectingDataId: str = ""
-        self.lastImage = None
+        self.lastImageSize = None
+        self.showingNotification = False
 
     def clear_search_bar(self):
         self.searchBar.delete(0, "end")
@@ -1056,12 +1057,16 @@ class DTSToolBox(widget.CTk):
         self.searchBar.insert(0, self.analyzer.content)
 
     def notify(self, message, last=800):
+        if self.showingNotification is True:
+            return
+        self.showingNotification = True
         lastSearchBar = self.searchBar.get()
         self.clear_search_bar()
 
         def restore():
             self.clear_search_bar()
             self.searchBar.insert(0, lastSearchBar)
+            self.showingNotification = False
 
         self.searchBar.insert(0, message)
         self.searchBar.after(last, restore)
@@ -1170,9 +1175,9 @@ class DTSToolBox(widget.CTk):
         if (
             clipboardImg is not None
             and not isinstance(clipboardImg, list)
-            and (self.lastImage is None or clipboardImg.size != self.lastImage.size)
+            and (self.lastImageSize is None or clipboardImg.size != self.lastImageSize)
         ):
-            self.lastImage = clipboardImg
+            self.lastImageSize = clipboardImg.size
             self.expectingDataId = uuid.uuid4().hex
 
             self.tabView.start_loading()
@@ -1195,6 +1200,9 @@ class DTSToolBox(widget.CTk):
         self.cb_on_input_update(source=DTSInputSource.USER, text=text)
 
     def cb_on_input_update(self, source, text):
+        if self.showingNotification is True:
+            return
+        
         self.analyzer.process(source, text)
 
         if self.analyzer.skipped:
