@@ -61,8 +61,14 @@ class DTSAnalyzer:
         self.dataClass = {}
 
     def process(self, source, text):
-        if len(text) > self.config.get_clipboard_max_length():
+        # text report can bypass max length check
+        if (
+            source != DTSInputSource.TEXT_REPORT
+            and len(text) > self.config.get_clipboard_max_length()
+        ):
             print("[analyzer] clipboard content too big, skipping")
+            self.skipped = True
+            self.message = "Content too big!"
             return
 
         # user can override lastText check
