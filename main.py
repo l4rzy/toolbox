@@ -7,7 +7,7 @@ from lib.worker import DTSWorker
 from lib.tkdial import Meter
 from lib.CTkListbox import CTkListbox
 from iso3166 import countries
-from lib.util import resource_path, hash_str
+from lib.util import resource_path, hash_str, unique
 from lib.structure import (
     AbuseObject,
     VirusTotalObject,
@@ -24,9 +24,9 @@ import secrets
 from collections import deque
 
 VERSION_MAJOR = 0
-VERSION_MINOR = 3
-VERSION_PATCH = 6
-VERSION_DATE = "2024 Feb 12"
+VERSION_MINOR = 4
+VERSION_PATCH = 0
+VERSION_DATE = "2024 Feb 14"
 
 widget.set_default_color_theme(resource_path("lib\\theme.json"))
 widget.set_appearance_mode("dark")
@@ -163,7 +163,7 @@ class DTSHistory(CTkListbox):
         self.mainUI: DTSToolBox = mainUI
         self.historyClick = False  # workaround
 
-        self.navigationMax = 10
+        self.navigationMax = 100
         self.navigation = deque([None] * self.navigationMax, maxlen=self.navigationMax)
         self.navigationIndex = 0
 
@@ -188,8 +188,8 @@ class DTSHistory(CTkListbox):
         if data is None:
             return ("-", "-")
         type = data[0] if data[0] != "analyzer" else "ocr"
-        hexstr = f"{type}: {data[1][:50]}"
-        return (hexstr, hash_str(hexstr))
+        hashStr = f"{type}: {data[1][:50]}"
+        return (hashStr, hash_str(hashStr))
 
     def append(self, data):
         # don't save generic report to history, but save to navigation
@@ -262,7 +262,8 @@ class DTSGenericReport(widget.CTkFrame):
         if correction is True:
             self.label.configure(text="Did you mean?")
         for type in data:
-            for entry in set(data[type]):
+            uniqueData = unique(data[type])
+            for entry in uniqueData:
                 if self.row == self.maxRow:
                     print("[greport] max row reached, aborting ...")
                     return
@@ -889,7 +890,7 @@ class DTSAboutDialog(widget.CTkToplevel):
         self.line3 = widget.CTkLabel(
             self,
             font=widget.CTkFont(size=12),
-            text="Unlicensed, but free to use and modify",
+            text=f"Running on Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         )
 
         self.logo.grid(
@@ -1117,6 +1118,8 @@ class DTSToolBox(widget.CTk):
         elif id != self.expectingDataId:
             print("[ui] data dropped due to expiration")
         else:
+            # dataId expires
+            self.expectingDataId = ""
             self.tabView.history.append((source, originalText, data))
             self.tabView.render_from_worker(source, originalText, data)
 
@@ -1202,7 +1205,7 @@ class DTSToolBox(widget.CTk):
     def cb_on_input_update(self, source, text):
         if self.showingNotification is True:
             return
-        
+
         self.analyzer.process(source, text)
 
         if self.analyzer.skipped:

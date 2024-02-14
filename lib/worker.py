@@ -207,7 +207,11 @@ class AbuseIPDB:
             "Accept": "application/json",
         }
         url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={text}&maxAgeInDays={maxAge}"
-        self.curl.query(id, text, url, headers)
+        try:
+            self.curl.query(id, text, url, headers)
+        except Exception as e:
+            print(f"[worker-abuseipdb] error: {e}")
+            self.ui.render(source="abuseipdb", box=(id, text, None))
 
 
 class Shodan:
@@ -234,7 +238,11 @@ class Shodan:
 
     def query(self, id, text):
         url = f"https://api.shodan.io/shodan/host/{text}?key={self.apiKey}&minify=false"
-        self.curl.query(id, text, url)
+        try:
+            self.curl.query(id, text, url)
+        except Exception as e:
+            print(f"[worker-shodan] error: {e}")
+            self.ui.render(source="shodan", box=(id, text, None))
 
 
 class LocalIPWizard:
@@ -249,8 +257,10 @@ class LocalIPWizard:
         try:
             if reverse:
                 ipInfo = self.ipInfo.query(host)
+                self.ui.after(500, lambda: callback(id, (resp, ipInfo)))
                 resp = socket.gethostbyaddr(host)[0]
             else:
+                self.ui.after(800, lambda: callback(id, (resp, ipInfo)))
                 resp = socket.gethostbyname(host)
                 ipInfo = self.ipInfo.query(resp)
         except Exception as e:
@@ -301,7 +311,11 @@ class VirusTotal:
         headers = {"x-apikey": f"{self.apiKey}"}
 
         url = f"https://www.virustotal.com/api/v3/search?query={hash}"
-        self.curl.query(id, hash, url, headers)
+        try:
+            self.curl.query(id, hash, url, headers)
+        except Exception as e:
+            print(f"[worker-virustotal] error: {e}")
+            self.ui.render(source="virustotal", box=(id, hash, None))
 
 
 class NISTCVE:
@@ -324,7 +338,11 @@ class NISTCVE:
     @cache
     def query(self, id, cve, options={}):
         url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve.upper()}"
-        self.curl.query(id, cve, url)
+        try:
+            self.curl.query(id, cve, url)
+        except Exception as e:
+            print(f"[worker-cve] error: {e}")
+            self.ui.render(source="cve", box=(id, cve, None))
 
 
 class MacAddress:
@@ -389,7 +407,8 @@ class TesserOCR:
         try:
             self.api.SetImage(img)
             res = self.api.GetUTF8Text()
-        except Exception:
+        except Exception as e:
+            print(f"[worker-ocr] error: {e}")
             res = ""
         callback(id, res)
 

@@ -16,3 +16,8 @@ def resource_path(relative_path):
 
 def hash_str(itemStr: str):
     return hashlib.sha256(itemStr.encode()).hexdigest()
+
+
+def unique(sequence):
+    seen = set()
+    return [x for x in sequence if not (x in seen or seen.add(x))]
