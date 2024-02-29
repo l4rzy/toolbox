@@ -885,7 +885,9 @@ class DTSAboutDialog(widget.CTkToplevel):
             text=f"DTS Toolbox - v{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH} ({VERSION_DATE})",
         )
         self.line2 = widget.CTkLabel(
-            self, font=widget.CTkFont(size=14), text="Original author: Duc Lam Nguyen"
+            self,
+            font=widget.CTkFont(size=14),
+            text="Original author: l4rzy | License: GPLv3",
         )
         self.line3 = widget.CTkLabel(
             self,
