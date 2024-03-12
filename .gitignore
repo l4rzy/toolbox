@@ -2,6 +2,7 @@ output/*
 dist/*
 data/*
 lib/__pycache__/*
+*.pyc
 build/*
 config.ini
 .vscode/*
