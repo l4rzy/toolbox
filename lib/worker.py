@@ -89,25 +89,10 @@ class LibCurl:
         (self.tunnelUrl, self.proxy, self.auth) = internetConfig
         self.debug = debug
 
-    def thread_fn(
-        self,
-        id,
-        originalText,
-        url,
-        callback,
-        headers=None,
-        cookies=None,
-        data=None,
-        dataLen=0,
-        req="GET",
-    ):
+    def thread_fn(self, id, originalText, url, callback, headers=None, cookies=None):
         handle = pycurl.Curl()
-        # if self.debug:
-        handle.setopt(handle.VERBOSE, True)
-
-        if data is not None:
-            handle.setopt(pycurl.POSTFIELDS, data)
-            handle.setopt(pycurl.POSTFIELDSIZE, dataLen)
+        if self.debug:
+            handle.setopt(handle.VERBOSE, True)
 
         handle.setopt(
             pycurl.USERAGENT,
@@ -118,7 +103,7 @@ class LibCurl:
         handle.setopt(pycurl.WRITEFUNCTION, buffer.write)
         handle.setopt(pycurl.URL, url)
 
-        if self.tunnelUrl is None and self.proxy is not None:
+        if self.proxy is not None:
             handle.setopt(pycurl.PROXY, self.proxy)
             handle.setopt(
                 pycurl.PROXYHEADER, [f"Proxy-Authorization: Basic {self.auth}"]
@@ -135,6 +120,39 @@ class LibCurl:
         buffer.close()
         callback(id, (code, originalText, body.decode()))
 
+    def tunnel_thread_fn(
+        self,
+        id,
+        originalText,
+        tunnelUrl,
+        callback,
+        headers=None,
+        cookies=None,
+        data=None,
+    ):
+        c = pycurl.Curl()
+        c.setopt(c.URL, tunnelUrl)
+        buffer = io.BytesIO()
+        c.setopt(pycurl.WRITEFUNCTION, buffer.write)
+        c.setopt(
+            pycurl.USERAGENT,
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+        )
+        headers = ["Accept:application/json", "Content-Type:application/json"]
+
+        c.setopt(pycurl.HTTPHEADER, headers)
+        if data is not None:
+            datas = json.dumps(data)
+            c.setopt(c.POSTFIELDS, datas)
+
+        c.perform()
+        code: int = c.getinfo(pycurl.RESPONSE_CODE)
+        body = buffer.getvalue()
+
+        c.close()
+        buffer.close()
+        callback(id, (code, originalText, body.decode()))
+
     def query(self, id, originalText, url, headers={}, cookies={}, req="GET"):
         pc_headers = []
         for header, value in headers.items():
@@ -147,24 +165,12 @@ class LibCurl:
         t.daemon = True
         t.start()
 
-    def tunnel(self, id, originalText, tunnel_url, data):
+    def tunnel(self, id, originalText, tunnelUrl, data):
         headers = ["Accept:application/json"]
-        datas = json.dumps(data)
-        dataIO = io.StringIO(datas)
 
         t = threading.Thread(
-            target=self.thread_fn,
-            args=[
-                id,
-                originalText,
-                tunnel_url,
-                self.callback,
-                headers,
-                None,
-                dataIO,
-                len(datas),
-                "POST",
-            ],
+            target=self.tunnel_thread_fn,
+            args=[id, originalText, tunnelUrl, self.callback, headers, None, data],
         )
         t.daemon = True
         t.start()
