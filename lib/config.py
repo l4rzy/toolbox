@@ -5,6 +5,7 @@ class DTSConfig:
     def __init__(self, configFile="config.ini"):
         self.defaultCfg = """
 [general]
+tunnel = false
 proxy = false
 proxy_auth = your basic auth here
 
@@ -45,7 +46,13 @@ dimension = 640x800+800+378
         try:
             self.config[section][key] = value
         except Exception as e:
-            print(f'[config] can not set config due to {e}')
+            print(f"[config] can not set config due to {e}")
+
+    def get_tunnel_string(self) -> None | str:
+        val = self.get("general", "tunnel")
+        if val == "false":
+            return None
+        return val
 
     def get_proxy_string(self) -> None | str:
         val = self.get("general", "proxy")
@@ -56,13 +63,23 @@ dimension = 640x800+800+378
     def get_proxy_config(self):
         val = self.get("general", "proxy_auth")
         return (self.get_proxy_string(), val)
-    
+
+    def get_proxy_auth(self):
+        return self.get("general", "proxy_auth")
+
+    def get_internet_config(self):
+        return (
+            self.get_tunnel_string(),
+            self.get_proxy_string(),
+            self.get_proxy_auth(),
+        )
+
     def get_local_ip_db(self) -> str:
         val = self.get("general", "localipdb")
         if val is None:
             val = "localIPDB.csv"
         return val
-    
+
     def get_network_debug(self):
         val = self.get("general", "network_debug")
         if val is None or val == "false":

@@ -1,10 +1,5 @@
 import io
-
-try:
-    import simdjson
-except Exception:
-    print("[worker] falling back to vanilla cpython json")
-    import json as simdjson
+import json
 import threading
 import pycurl
 from .util import resource_path
@@ -89,42 +84,76 @@ class Curl(CmdWrapper):
 
 
 class LibCurl:
-    def __init__(self, callback=None, proxyConfig=(), debug=False):
+    def __init__(self, callback=None, internetConfig=(), debug=False):
         self.callback = callback
-        (self.proxy, self.auth) = proxyConfig
+        (self.tunnelUrl, self.proxy, self.auth) = internetConfig
         self.debug = debug
 
     def thread_fn(self, id, originalText, url, callback, headers=None, cookies=None):
         handle = pycurl.Curl()
         if self.debug:
             handle.setopt(handle.VERBOSE, True)
-        buffer = io.BytesIO()
 
         handle.setopt(
-            handle.USERAGENT,
+            pycurl.USERAGENT,
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
         )
-        handle.setopt(handle.WRITEFUNCTION, buffer.write)
-        handle.setopt(handle.URL, url)
+
+        buffer = io.BytesIO()
+        handle.setopt(pycurl.WRITEFUNCTION, buffer.write)
+        handle.setopt(pycurl.URL, url)
 
         if self.proxy is not None:
-            handle.setopt(handle.PROXY, self.proxy)
+            handle.setopt(pycurl.PROXY, self.proxy)
             handle.setopt(
                 pycurl.PROXYHEADER, [f"Proxy-Authorization: Basic {self.auth}"]
             )
-            handle.setopt(handle.SSL_OPTIONS, handle.SSLOPT_NO_REVOKE)
+            handle.setopt(pycurl.SSL_OPTIONS, handle.SSLOPT_NO_REVOKE)
 
         if headers is not None:
-            handle.setopt(handle.HTTPHEADER, headers)
+            handle.setopt(pycurl.HTTPHEADER, headers)
         handle.perform()
-        code: int = handle.getinfo(handle.RESPONSE_CODE)
+        code: int = handle.getinfo(pycurl.RESPONSE_CODE)
         body = buffer.getvalue()
 
         handle.close()
         buffer.close()
         callback(id, (code, originalText, body.decode()))
 
-    def query(self, id, originalText, url, headers={}, cookies={}):
+    def tunnel_thread_fn(
+        self,
+        id,
+        originalText,
+        tunnelUrl,
+        callback,
+        headers=None,
+        cookies=None,
+        data=None,
+    ):
+        c = pycurl.Curl()
+        c.setopt(c.URL, tunnelUrl)
+        buffer = io.BytesIO()
+        c.setopt(pycurl.WRITEFUNCTION, buffer.write)
+        c.setopt(
+            pycurl.USERAGENT,
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+        )
+        headers = ["Accept:application/json", "Content-Type:application/json"]
+
+        c.setopt(pycurl.HTTPHEADER, headers)
+        if data is not None:
+            datas = json.dumps(data)
+            c.setopt(c.POSTFIELDS, datas)
+
+        c.perform()
+        code: int = c.getinfo(pycurl.RESPONSE_CODE)
+        body = buffer.getvalue()
+
+        c.close()
+        buffer.close()
+        callback(id, (code, originalText, body.decode()))
+
+    def query(self, id, originalText, url, headers={}, cookies={}, req="GET"):
         pc_headers = []
         for header, value in headers.items():
             pc_headers.append(f"{header}: {value}")
@@ -132,6 +161,16 @@ class LibCurl:
         t = threading.Thread(
             target=self.thread_fn,
             args=[id, originalText, url, self.callback, pc_headers, cookies],
+        )
+        t.daemon = True
+        t.start()
+
+    def tunnel(self, id, originalText, tunnelUrl, data):
+        headers = ["Accept:application/json"]
+
+        t = threading.Thread(
+            target=self.tunnel_thread_fn,
+            args=[id, originalText, tunnelUrl, self.callback, headers, None, data],
         )
         t.daemon = True
         t.start()
@@ -183,7 +222,7 @@ class AbuseIPDB:
             (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
-                jsonData = simdjson.loads(body)
+                jsonData = json.loads(body)
                 abuseObject = AbuseObject(**jsonData)
                 ui.render(source="abuseipdb", box=(id, originalText, abuseObject))
 
@@ -193,10 +232,10 @@ class AbuseIPDB:
 
         self.apiKey = apiKey
         self.ui = ui  # a ref to UI object
-        self.proxyConfig = self.ui.config.get_proxy_config()
+        self.internetConfig = self.ui.config.get_internet_config()
         self.curlDebug = self.ui.config.get_network_debug()
         self.curl = LibCurl(
-            callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug
+            callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
         )
         self.running = False
 
@@ -208,7 +247,15 @@ class AbuseIPDB:
         }
         url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={text}&maxAgeInDays={maxAge}"
         try:
-            self.curl.query(id, text, url, headers)
+            if self.internetConfig[0] is not None:
+                tunnelUrl = self.internetConfig[0]
+                pc_headers = []
+                for header, value in headers.items():
+                    pc_headers.append(f"{header}: {value}")
+                data = {"url": url, "headers": pc_headers}
+                self.curl.tunnel(id, text, tunnelUrl, data)
+            else:
+                self.curl.query(id, text, url, headers)
         except Exception as e:
             print(f"[worker-abuseipdb] error: {e}")
             self.ui.render(source="abuseipdb", box=(id, text, None))
@@ -220,7 +267,7 @@ class Shodan:
             (code, originalText, body) = response
             print(body)
             if code == 200 and body != "":
-                jsonData = simdjson.loads(body)
+                jsonData = json.loads(body)
                 shodanObject = ShodanObject(**jsonData)
                 ui.render(source="shodan", box=(id, originalText, shodanObject))
 
@@ -230,10 +277,10 @@ class Shodan:
 
         self.apiKey = apiKey
         self.ui = ui
-        self.proxyConfig = self.ui.config.get_proxy_config()
+        self.internetConfig = self.ui.config.get_internet_config()
         self.curlDebug = self.ui.config.get_network_debug()
         self.curl = LibCurl(
-            callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug
+            callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
         )
 
     def query(self, id, text):
@@ -290,7 +337,7 @@ class VirusTotal:
             (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
-                jsonData = simdjson.loads(body)
+                jsonData = json.loads(body)
                 virusTotalObject = VirusTotalObject(**jsonData)
                 ui.render(source="virustotal", box=(id, originalText, virusTotalObject))
 
@@ -300,19 +347,26 @@ class VirusTotal:
 
         self.ui = ui  # a ref to UI object
         self.apiKey = apiKey
-        self.proxyConfig = self.ui.config.get_proxy_config()
+        self.internetConfig = self.ui.config.get_internet_config()
         self.curlDebug = self.ui.config.get_network_debug()
         self.curl = LibCurl(
-            callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug
+            callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
         )
 
     @cache
     def query(self, id, hash, options={}):
         headers = {"x-apikey": f"{self.apiKey}"}
-
         url = f"https://www.virustotal.com/api/v3/search?query={hash}"
         try:
-            self.curl.query(id, hash, url, headers)
+            if self.internetConfig[0] is not None:
+                tunnelUrl = self.internetConfig[0]
+                pc_headers = []
+                for header, value in headers.items():
+                    pc_headers.append(f"{header}: {value}")
+                data = {"url": url, "headers": pc_headers}
+                self.curl.tunnel(id, hash, tunnelUrl, data)
+            else:
+                self.curl.query(id, hash, url, headers)
         except Exception as e:
             print(f"[worker-virustotal] error: {e}")
             self.ui.render(source="virustotal", box=(id, hash, None))
@@ -324,22 +378,27 @@ class NISTCVE:
             (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
-                jsonData = simdjson.loads(body)
+                jsonData = json.loads(body)
                 nistObject = NISTObject(**jsonData)
                 ui.render(source="cve", box=(id, originalText, nistObject))
 
         self.ui = ui  # a ref to UI object
-        self.proxyConfig = self.ui.config.get_proxy_config()
+        self.internetConfig = self.ui.config.get_internet_config()
         self.curlDebug = self.ui.config.get_network_debug()
         self.curl = LibCurl(
-            callback=callback, proxyConfig=self.proxyConfig, debug=self.curlDebug
+            callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
         )
 
     @cache
     def query(self, id, cve, options={}):
         url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve.upper()}"
         try:
-            self.curl.query(id, cve, url)
+            if self.internetConfig[0] is not None:
+                tunnelUrl = self.internetConfig[0]
+                data = {"url": url}
+                self.curl.tunnel(id, cve, tunnelUrl, data)
+            else:
+                self.curl.query(id, cve, url)
         except Exception as e:
             print(f"[worker-cve] error: {e}")
             self.ui.render(source="cve", box=(id, cve, None))
@@ -376,6 +435,9 @@ class LocalIpInfo:
     def __init__(self, dataFile):
         self.db = None
         self.dataFile = dataFile
+
+    def remote_query(self, ip):
+        pass
 
     def query(self, ip):
         if self.db is None:
