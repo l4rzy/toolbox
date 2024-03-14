@@ -6,9 +6,16 @@ import io
 
 from pydantic import BaseModel
 
+
 class TunnelObject(BaseModel):
     url: str
-    headers: list[str] | None
+    headers: list[str] | None = None
+
+
+class LocalIPDBObject(BaseModel):
+    ip4: str
+    ip6: str | None = None
+
 
 app = FastAPI()
 
@@ -22,6 +29,7 @@ def get_health():
 def handle_tunnel(target: TunnelObject):
     url = target.url
     headers = target.headers
+    print(target)
     try:
         handle = pycurl.Curl()
         # if self.debug:
@@ -38,7 +46,7 @@ def handle_tunnel(target: TunnelObject):
         if headers is not None:
             handle.setopt(pycurl.HTTPHEADER, headers)
         handle.perform()
-        #code: int = handle.getinfo(pycurl.RESPONSE_CODE)
+        # code: int = handle.getinfo(pycurl.RESPONSE_CODE)
         body = buffer.getvalue()
 
         handle.close()
@@ -48,6 +56,12 @@ def handle_tunnel(target: TunnelObject):
         return {}
 
     return body
+
+
+@app.post("/localip", response_class=PlainTextResponse)
+def handle_localip(target: LocalIPDBObject):
+    print(target)
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=5058)

@@ -160,7 +160,7 @@ class LibCurl:
 
         t = threading.Thread(
             target=self.thread_fn,
-            args=[id, originalText, url, self.callback, pc_headers, cookies, req],
+            args=[id, originalText, url, self.callback, pc_headers, cookies],
         )
         t.daemon = True
         t.start()
@@ -248,9 +248,11 @@ class AbuseIPDB:
         url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={text}&maxAgeInDays={maxAge}"
         try:
             if self.internetConfig[0] is not None:
-                print("[worker-abuseipdb] tunneling")
                 tunnelUrl = self.internetConfig[0]
-                data = {"url": url, "headers": headers}
+                pc_headers = []
+                for header, value in headers.items():
+                    pc_headers.append(f"{header}: {value}")
+                data = {"url": url, "headers": pc_headers}
                 self.curl.tunnel(id, text, tunnelUrl, data)
             else:
                 self.curl.query(id, text, url, headers)
@@ -354,10 +356,17 @@ class VirusTotal:
     @cache
     def query(self, id, hash, options={}):
         headers = {"x-apikey": f"{self.apiKey}"}
-
         url = f"https://www.virustotal.com/api/v3/search?query={hash}"
         try:
-            self.curl.query(id, hash, url, headers)
+            if self.internetConfig[0] is not None:
+                tunnelUrl = self.internetConfig[0]
+                pc_headers = []
+                for header, value in headers.items():
+                    pc_headers.append(f"{header}: {value}")
+                data = {"url": url, "headers": pc_headers}
+                self.curl.tunnel(id, hash, tunnelUrl, data)
+            else:
+                self.curl.query(id, hash, url, headers)
         except Exception as e:
             print(f"[worker-virustotal] error: {e}")
             self.ui.render(source="virustotal", box=(id, hash, None))
@@ -374,17 +383,22 @@ class NISTCVE:
                 ui.render(source="cve", box=(id, originalText, nistObject))
 
         self.ui = ui  # a ref to UI object
-        self.proxyConfig = self.ui.config.get_internet_config()
+        self.internetConfig = self.ui.config.get_internet_config()
         self.curlDebug = self.ui.config.get_network_debug()
         self.curl = LibCurl(
-            callback=callback, internetConfig=self.proxyConfig, debug=self.curlDebug
+            callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
         )
 
     @cache
     def query(self, id, cve, options={}):
         url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve.upper()}"
         try:
-            self.curl.query(id, cve, url)
+            if self.internetConfig[0] is not None:
+                tunnelUrl = self.internetConfig[0]
+                data = {"url": url}
+                self.curl.tunnel(id, cve, tunnelUrl, data)
+            else:
+                self.curl.query(id, cve, url)
         except Exception as e:
             print(f"[worker-cve] error: {e}")
             self.ui.render(source="cve", box=(id, cve, None))
@@ -421,6 +435,9 @@ class LocalIpInfo:
     def __init__(self, dataFile):
         self.db = None
         self.dataFile = dataFile
+
+    def remote_query(self, ip):
+        pass
 
     def query(self, ip):
         if self.db is None:
