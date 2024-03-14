@@ -700,9 +700,10 @@ class DTSCirclCVEReport(widget.CTkFrame):
             self.rateMeter.set(int(data.cvss * 10))
             self.metrics.insert(
                 "0.0",
-                data.access.model_dump_json(indent=2) + '\n'
-                + data.impact.model_dump_json(indent=2) + '\n'
-                + data.vulnerable_product,
+                "Access: "
+                + data.access.model_dump_json(indent=2)
+                + "\n\nImpact: "
+                + data.impact.model_dump_json(indent=2),
             )
 
         except Exception as e:
@@ -1153,7 +1154,8 @@ class DTSToolBox(widget.CTk):
         self.roboto_normal = font.Font(
             family="Roboto", name="DTSContentFont", size=11, weight="normal"
         )
-        self.iconbitmap(resource_path("./lib/icon.ico"))
+        if sys.platform == "win32":
+            self.iconbitmap(resource_path("lib/icon.ico"))
         self.title("Toolbox")
         self.welcomeTexts = [
             "How are you doing today?",
@@ -1216,20 +1218,15 @@ class DTSToolBox(widget.CTk):
         self.clear_search_bar()
         self.searchBar.insert(0, self.analyzer.content)
 
-    def notify(self, message, last=800):
-        if self.showingNotification is True:
-            return
+    def notify(self, message, last=2000):
         self.showingNotification = True
-        lastSearchBar = self.searchBar.get()
-        self.clear_search_bar()
 
         def restore():
-            self.clear_search_bar()
-            self.searchBar.insert(0, lastSearchBar)
+            self.title("Toolbox")
             self.showingNotification = False
 
-        self.searchBar.insert(0, message)
-        self.searchBar.after(last, restore)
+        self.title(f"Toolbox ({message})")
+        self.after(last, restore)
 
     def update_top_bar(self):
         self.update_nav()
@@ -1332,18 +1329,23 @@ class DTSToolBox(widget.CTk):
         if event.widget != self or self.config.get_analyze_on_focus() is False:
             return
 
-        clipboardImg = ImageGrab.grabclipboard()
-        if (
-            clipboardImg is not None
-            and not isinstance(clipboardImg, list)
-            and (self.lastImageSize is None or clipboardImg.size != self.lastImageSize)
-        ):
-            self.lastImageSize = clipboardImg.size
-            self.expectingDataId = uuid.uuid4().hex
+        # xclip on linux doesnt support image/png
+        if sys.platform != "linux":
+            clipboardImg = ImageGrab.grabclipboard()
+            if (
+                clipboardImg is not None
+                and not isinstance(clipboardImg, list)
+                and (
+                    self.lastImageSize is None
+                    or clipboardImg.size != self.lastImageSize
+                )
+            ):
+                self.lastImageSize = clipboardImg.size
+                self.expectingDataId = uuid.uuid4().hex
 
-            self.tabView.start_loading()
-            self.worker.run(self.expectingDataId, ["ocr"], img=clipboardImg)
-            return
+                self.tabView.start_loading()
+                self.worker.run(self.expectingDataId, ["ocr"], img=clipboardImg)
+                return
 
         try:
             clipboard = self.clipboard_get().strip()
@@ -1365,7 +1367,6 @@ class DTSToolBox(widget.CTk):
             return
 
         self.analyzer.process(source, text)
-
         if self.analyzer.skipped:
             self.notify(self.analyzer.message)
             return

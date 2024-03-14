@@ -22,7 +22,7 @@ class LocalIPDBObject(BaseModel):
     ip6: str | None = None
 
 
-app = FastAPI()
+app = FastAPI(title="DTS Toolbox", openapi_url=None, redoc_url=None)
 logger = logging.getLogger()
 
 
@@ -54,11 +54,10 @@ def get_health():
 
 @app.post("/tunnel", response_class=PlainTextResponse)
 def handle_tunnel(target: TunnelObject):
-    target = process_tunnel_obj(target)
-    url = target.url
-    headers = target.headers
-    print(target)
     try:
+        target = process_tunnel_obj(target)
+        url = target.url
+        headers = target.headers
         handle = pycurl.Curl()
 
         handle.setopt(

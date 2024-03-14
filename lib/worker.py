@@ -153,7 +153,7 @@ class LibCurl:
         buffer.close()
         callback(id, (code, originalText, body.decode()))
 
-    def query(self, id, originalText, url, headers={}, cookies={}, req="GET"):
+    def query(self, id, originalText, url, headers={}, cookies={}):
         pc_headers = []
         for header, value in headers.items():
             pc_headers.append(f"{header}: {value}")

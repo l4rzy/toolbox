@@ -125,7 +125,8 @@ class DTSAnalyzer:
     def truefalse(self, fn, **kwargs) -> bool:
         try:
             return fn(self.content, **kwargs)
-        except Exception:
+        except Exception as e:
+            print(f"[validators] error: {e}")
             return False
 
     def has_result(self):

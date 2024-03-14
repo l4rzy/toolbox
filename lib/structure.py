@@ -110,7 +110,7 @@ class VTAttributes(BaseModel):
 
 
 class VTLinks(BaseModel):
-    self: str
+    self: Optional[str] = None
 
 
 class VTItem(BaseModel):
@@ -322,48 +322,20 @@ class NISTObject(BaseModel):
 
 
 class CirclCVEAccess(BaseModel):
-    authentication: str
-    complexity: str
-    vector: str
+    authentication: Optional[str] = None
+    complexity: Optional[str] = None
+    vector: Optional[str] = None
 
 
 class CirclCVEImpact(BaseModel):
-    availability: str
-    confidentiality: str
-    integrity: str
-
-
-class CirclCVEContributor(BaseModel):
-    name: str
-    organization: str
-
-
-class CirclCVEDefinitionExtension(BaseModel):
-    comment: str
-    oval: str
-
-
-class CirclCVEOvalItem(BaseModel):
-    accepted: str
-    class_: str = Field(..., alias="class")
-    contributors: List[CirclCVEContributor]
-    definition_extensions: List[CirclCVEDefinitionExtension]
-    description: str
-    family: str
-    id: str
-    status: str
-    submitted: str
-    title: str
-    version: str
-
-
-class CirclCVERefmap(BaseModel):
-    confirm: List[str]
+    availability: Optional[str] = None
+    confidentiality: Optional[str] = None
+    integrity: Optional[str] = None
 
 
 class CirclCVEVulnerableConfigurationItem(BaseModel):
-    id: str
-    title: str
+    id: Optional[str] = None
+    title: Optional[str] = None
 
 
 class CirclCVEObject(BaseModel):
@@ -371,7 +343,6 @@ class CirclCVEObject(BaseModel):
     Published: Optional[str] = None
     access: Optional[CirclCVEAccess] = None
     assigner: Optional[str] = None
-    capec: Optional[List] = None
     cvss: Optional[float] = None
     cvss_time: Optional[str] = Field(None, alias="cvss-time")
     cvss_vector: Optional[str] = Field(None, alias="cvss-vector")
@@ -379,10 +350,6 @@ class CirclCVEObject(BaseModel):
     id: Optional[str] = None
     impact: Optional[CirclCVEImpact] = None
     last_modified: Optional[str] = Field(None, alias="last-modified")
-    oval: Optional[List[CirclCVEOvalItem]] = None
-    references: Optional[List[str]] = None
-    refmap: Optional[CirclCVERefmap] = None
     summary: Optional[str] = None
     vulnerable_configuration: Optional[List[CirclCVEVulnerableConfigurationItem]] = None
-    vulnerable_configuration_cpe_2_2: Optional[List] = None
     vulnerable_product: Optional[List[str]] = None
