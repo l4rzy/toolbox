@@ -3,7 +3,7 @@ import json
 import threading
 import pycurl
 from .util import resource_path
-from .structure import AbuseObject, VirusTotalObject, ShodanObject, NISTObject
+from .structure import AbuseObject, VirusTotalObject, ShodanObject, NISTObject, CirclCVEObject
 import ouilookup
 import ipaddress
 import csv
@@ -445,6 +445,48 @@ class NISTCVE:
             self.ui.render(source="cve", box=(id, cve, None))
 
 
+class CirclCVE:
+    def __init__(self, ui):
+        def callback(id, response):
+            (code, originalText, body) = response
+            # parse response, since result is json
+            if code == 200 and body != "":
+                if body == "null":
+                    jsonData = {}
+                else:
+                    jsonData = json.loads(body)
+                circlObject = CirclCVEObject(**jsonData)
+                ui.render(source="circlcve", box=(id, originalText, circlObject))
+
+        self.ui = ui  # a ref to UI object
+        self.internetConfig = self.ui.config.get_internet_config()
+        self.curlDebug = self.ui.config.get_network_debug()
+        self.curl = LibCurl(
+            callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
+        )
+
+    def timeout(self, id, cve, sec):
+        self.ui.after(
+            sec,
+            lambda: self.ui.render(source="circlcve", box=(id, cve, None)),
+        )
+
+    @cache
+    def query(self, id, cve, options={}):
+        url = f"https://cve.circl.lu/api/cve/{cve.upper()}"
+        try:
+            if self.internetConfig[0] is not None:
+                self.timeout(id, cve, 5000)
+                tunnelUrl = self.internetConfig[0]
+                data = {"url": url}
+                self.curl.tunnel(id, cve, tunnelUrl, data)
+            else:
+                self.timeout(id, cve, 10000)
+                self.curl.query(id, cve, url)
+        except Exception as e:
+            print(f"[worker-circlcve] error: {e}")
+            self.ui.render(source="cve", box=(id, cve, None))
+
 class MacAddress:
     def __init__(self, ui):
         self.ui = ui
@@ -539,7 +581,8 @@ class DTSWorker:
 
         self.virusTotal = VirusTotal(apiKey=virusTotalKey, ui=self.ui)
         self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBKey, ui=self.ui)
-        self.nistCVE = NISTCVE(ui=self.ui)
+        # self.nistCVE = NISTCVE(ui=self.ui)
+        self.circleCVE = CirclCVE(ui=self.ui)
         self.netUser = NetUser(ui=self.ui)
         self.base64Decoder = Base64Decoder(ui=self.ui)
         # self.shodan = Shodan(apiKey=shodanAPIKey, ui=self.ui)
@@ -555,7 +598,9 @@ class DTSWorker:
             elif t == "abuseipdb":
                 self.abuseIPDB.query(id, text)
             elif t == "cve":
-                self.nistCVE.query(id, text)
+                # disable nist cve since they are slow and require api token now
+                # self.nistCVE.query(id, text)
+                self. circleCVE.query(id, text)
             elif t == "netuser":
                 self.netUser.query(id, text)
             elif t == "base64":

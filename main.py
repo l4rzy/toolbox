@@ -13,6 +13,7 @@ from lib.structure import (
     VirusTotalObject,
     VTAttributes,
     NISTObject,
+    CirclCVEObject,
     DTSInputSource,
 )
 import signal
@@ -602,6 +603,113 @@ class DTSNISTCVEReport(widget.CTkFrame):
             self.render_exception()
 
 
+class DTSCirclCVEReport(widget.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(5, weight=1)
+
+        self.title = widget.CTkLabel(
+            self, justify="center", font=widget.CTkFont(size=18, weight="bold")
+        )
+        self.label = widget.CTkLabel(
+            self, justify="center", font=widget.CTkFont(size=14)
+        )
+        self.result = widget.CTkLabel(self, justify="center")
+        self.rateMeter = Meter(
+            self,
+            radius=200,
+            start=0,
+            end=100,
+            border_width=5,
+            bg="#212121",
+            fg="gray35",
+            text_color="white",
+            start_angle=180,
+            end_angle=-270,
+            scale_color="black",
+            axis_color="white",
+            needle_color="white",
+            state="static",
+            scroll=False,
+        )
+        self.rateMeter.set_mark(0, 24, "green")
+        self.rateMeter.set_mark(25, 50, "yellow")
+        self.rateMeter.set_mark(51, 75, "orange")
+        self.rateMeter.set_mark(76, 100, "red")
+
+        self.desc = DTSLabelWithBtn(self, copy_btn=False, max_width=500)
+        self.metrics = widget.CTkTextbox(
+            self, font=widget.CTkFont(family="Consolas", size=14)
+        )
+
+    def clear(self):
+        self.metrics.delete("0.0", "end")
+
+    def render_exception(self, message="---"):
+        self.rateMeter.set(0)
+        self.label.configure(text="An error happened")
+        self.result.configure(text=message)
+        self.desc.grid_remove()
+        self.metrics.grid_remove()
+
+    def populate(self, data: CirclCVEObject | None):
+        self.clear()
+
+        if data is None:
+            self.render_exception(
+                message="A network error happened! Check your internet settings."
+            )
+            return
+
+        self.title.grid(row=0, column=0, padx=4, pady=4)
+        self.label.grid(row=1, column=0, padx=4, pady=2)
+        self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
+        self.result.grid(row=3, column=0, padx=4, pady=2)
+        self.desc.grid(row=4, column=0, padx=30, pady=10, sticky="NSEW")
+        self.metrics.grid(
+            row=5, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW"
+        )
+
+        self.title.configure(text="CIRCL's CVE Report")
+
+        if data.id is None:
+            self.render_exception("CVE not found!")
+            return
+
+        try:
+            self.label.configure(text=f"for {data.id}")
+            self.result.configure(text=f"Published on {data.Published}")
+            desc = data.summary
+            if len(desc) > 450:
+                shortDesc = desc[:450]
+                if ". " in shortDesc:
+                    shortDesc = shortDesc[: shortDesc.rfind(". ")]
+                else:
+                    shortDesc += " ..."
+            else:
+                shortDesc = desc
+
+            self.desc.set("Desc", shortDesc.strip())
+            if data.cvss is None:
+                self.rateMeter.set(0)
+                self.metrics.insert("0.0", "Metrics not found!")
+                return
+
+            self.rateMeter.set(int(data.cvss * 10))
+            self.metrics.insert(
+                "0.0",
+                data.access.model_dump_json(indent=2) + '\n'
+                + data.impact.model_dump_json(indent=2) + '\n'
+                + data.vulnerable_product,
+            )
+
+        except Exception as e:
+            print(e)
+            self.render_exception()
+
+
 class DTSTextReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -843,6 +951,21 @@ class DTSTabView(widget.CTkTabview):
         elif source == "cve":
             if source not in self.reports:
                 self.reports[source] = DTSNISTCVEReport(self.tab("Report"))
+                self.reports[source].grid(
+                    row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
+                )
+
+            self.textBoxData.delete("0.0", "end")
+            if data is not None:
+                self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
+
+            self.hide_other_reports(except_for=source)
+            self.reports[source].populate(data)
+            self.currentReport = source
+
+        elif source == "circlcve":
+            if source not in self.reports:
+                self.reports[source] = DTSCirclCVEReport(self.tab("Report"))
                 self.reports[source].grid(
                     row=0, column=0, columnspan=1, rowspan=1, sticky="SWEN"
                 )
