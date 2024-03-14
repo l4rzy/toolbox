@@ -26,7 +26,7 @@ from collections import deque
 VERSION_MAJOR = 0
 VERSION_MINOR = 4
 VERSION_PATCH = 2
-VERSION_DATE = "2024 Mar 13"
+VERSION_DATE = "2024 Mar 14"
 
 widget.set_default_color_theme(resource_path("lib/theme.json"))
 widget.set_appearance_mode("dark")
@@ -335,7 +335,9 @@ class DTSVirusTotalReport(widget.CTkFrame):
 
         self.title.configure(text="VirusTotal Report")
         if data is None:
-            self.render_exception("An unknown error happened!")
+            self.render_exception(
+                "A network error happened! Check your internet settings."
+            )
             return
 
         try:
@@ -455,7 +457,9 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
 
     def populate(self, data: AbuseObject | None):
         if data is None:
-            self.render_exception("An unknown error happened")
+            self.render_exception(
+                "A network error happened! Check your internet settings."
+            )
             return
         self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=2)
@@ -545,7 +549,9 @@ class DTSNISTCVEReport(widget.CTkFrame):
         self.clear()
 
         if data is None:
-            self.render_exception(message="An unknown error happened")
+            self.render_exception(
+                message="A network error happened! Check your internet settings."
+            )
             return
 
         self.title.grid(row=0, column=0, padx=4, pady=4)
@@ -820,7 +826,6 @@ class DTSTabView(widget.CTkTabview):
             self.currentReport = source
 
         elif source == "virustotal":
-            print(f"virustotal with data = {data}")
             if source not in self.reports:
                 self.reports[source] = DTSVirusTotalReport(self.tab("Report"))
                 self.reports[source].grid(
