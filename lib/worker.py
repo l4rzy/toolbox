@@ -22,9 +22,9 @@ class CmdWrapper:
         import subprocess
         from pathlib import Path
 
-        Path(".\\tmp").mkdir(exist_ok=True)
+        Path("./tmp").mkdir(exist_ok=True)
         # use temp file due to subprocess stdout = PIPE blocks itself
-        ftempName = f"tmp\\{uuid.uuid4()}.bin"
+        ftempName = f"tmp/{uuid.uuid4()}.bin"
         ftemp = open(ftempName, "w+")
         self.process = subprocess.Popen(cmdline, stdout=ftemp, stderr=None)
         self.process.wait(timeout=10)
@@ -59,7 +59,7 @@ class CmdWrapper:
 
 
 class Curl(CmdWrapper):
-    def __init__(self, exe=resource_path("bin\\curl.exe"), callback=None, proxy=None):
+    def __init__(self, exe=resource_path("bin/curl.exe"), callback=None, proxy=None):
         super().__init__(exe, callback)
         self.proxy = proxy
         self.t: threading.Thread = None
@@ -227,7 +227,7 @@ class AbuseIPDB:
                 ui.render(source="abuseipdb", box=(id, originalText, abuseObject))
 
         if apiKey is None:
-            print("[abuseipdb] api key not provived, abuseipdb will not work")
+            print("[abuseipdb] api key not provived, abuseipdb might not work")
             self.apiKey = ""
 
         self.apiKey = apiKey
@@ -239,6 +239,12 @@ class AbuseIPDB:
         )
         self.running = False
 
+    def timeout(self, id, text, sec):
+        self.ui.after(
+            sec,
+            lambda: self.ui.render(source="abuseipdb", box=(id, text, None)),
+        )
+
     @cache
     def query(self, id, text, maxAge=90):
         headers = {
@@ -248,6 +254,7 @@ class AbuseIPDB:
         url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={text}&maxAgeInDays={maxAge}"
         try:
             if self.internetConfig[0] is not None:
+                self.timeout(id, text, 4000)
                 tunnelUrl = self.internetConfig[0]
                 pc_headers = []
                 for header, value in headers.items():
@@ -255,6 +262,7 @@ class AbuseIPDB:
                 data = {"url": url, "headers": pc_headers}
                 self.curl.tunnel(id, text, tunnelUrl, data)
             else:
+                self.timeout(id, text, 8000)
                 self.curl.query(id, text, url, headers)
         except Exception as e:
             print(f"[worker-abuseipdb] error: {e}")
@@ -283,10 +291,24 @@ class Shodan:
             callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
         )
 
+    def timeout(self, id, text, sec):
+        self.ui.after(
+            sec,
+            lambda: self.ui.render(source="shodan", box=(id, text, None)),
+        )
+
+    @cache
     def query(self, id, text):
         url = f"https://api.shodan.io/shodan/host/{text}?key={self.apiKey}&minify=false"
         try:
-            self.curl.query(id, text, url)
+            if self.internetConfig[0] is not None:
+                self.timeout(id, text, 4000)
+                tunnelUrl = self.internetConfig[0]
+                data = {"url": url}
+                self.curl.tunnel(id, text, tunnelUrl, data)
+            else:
+                self.timeout(id, text, 8000)
+                self.curl.query(id, text, url)
         except Exception as e:
             print(f"[worker-shodan] error: {e}")
             self.ui.render(source="shodan", box=(id, text, None))
@@ -353,12 +375,22 @@ class VirusTotal:
             callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
         )
 
+    def timeout(self, id, hash, sec):
+        self.ui.after(
+            sec,
+            lambda: self.ui.render(source="virustotal", box=(id, hash, None)),
+        )
+
     @cache
     def query(self, id, hash, options={}):
-        headers = {"x-apikey": f"{self.apiKey}"}
+        headers = {
+            "x-apikey": f"{self.apiKey}",
+            "Accept": "application/json",
+        }
         url = f"https://www.virustotal.com/api/v3/search?query={hash}"
         try:
             if self.internetConfig[0] is not None:
+                self.timeout(id, hash, 5000)
                 tunnelUrl = self.internetConfig[0]
                 pc_headers = []
                 for header, value in headers.items():
@@ -366,6 +398,7 @@ class VirusTotal:
                 data = {"url": url, "headers": pc_headers}
                 self.curl.tunnel(id, hash, tunnelUrl, data)
             else:
+                self.timeout(id, hash, 10000)
                 self.curl.query(id, hash, url, headers)
         except Exception as e:
             print(f"[worker-virustotal] error: {e}")
@@ -389,15 +422,23 @@ class NISTCVE:
             callback=callback, internetConfig=self.internetConfig, debug=self.curlDebug
         )
 
+    def timeout(self, id, cve, sec):
+        self.ui.after(
+            sec,
+            lambda: self.ui.render(source="cve", box=(id, cve, None)),
+        )
+
     @cache
     def query(self, id, cve, options={}):
         url = f"https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={cve.upper()}"
         try:
             if self.internetConfig[0] is not None:
+                self.timeout(id, cve, 5000)
                 tunnelUrl = self.internetConfig[0]
                 data = {"url": url}
                 self.curl.tunnel(id, cve, tunnelUrl, data)
             else:
+                self.timeout(id, cve, 10000)
                 self.curl.query(id, cve, url)
         except Exception as e:
             print(f"[worker-cve] error: {e}")
@@ -408,7 +449,7 @@ class MacAddress:
     def __init__(self, ui):
         self.ui = ui
         self.handle = ouilookup.OuiLookup(
-            data_file=resource_path("data\\ouilookup.json")
+            data_file=resource_path("data/ouilookup.json")
         )
 
     def thread_fn(self, id, mac, callback):

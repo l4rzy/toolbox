@@ -25,10 +25,10 @@ from collections import deque
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 4
-VERSION_PATCH = 0
-VERSION_DATE = "2024 Feb 14"
+VERSION_PATCH = 2
+VERSION_DATE = "2024 Mar 13"
 
-widget.set_default_color_theme(resource_path("lib\\theme.json"))
+widget.set_default_color_theme(resource_path("lib/theme.json"))
 widget.set_appearance_mode("dark")
 
 
@@ -70,7 +70,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
         self.abtn = None
 
         if copy_btn:
-            icpy = Image.open(resource_path("lib\\copy.png"))
+            icpy = Image.open(resource_path("lib/copy.png"))
             self.cbtn = widget.CTkButton(
                 self,
                 text="",
@@ -79,7 +79,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
                 image=widget.CTkImage(dark_image=icpy, light_image=icpy, size=(15, 15)),
             )
         if web_btn:
-            iweb = Image.open(resource_path("lib\\web.png"))
+            iweb = Image.open(resource_path("lib/web.png"))
             self.wbtn = widget.CTkButton(
                 self,
                 text="",
@@ -88,7 +88,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
                 image=widget.CTkImage(dark_image=iweb, light_image=iweb, size=(15, 15)),
             )
         if analyze_btn:
-            ianalyze = Image.open(resource_path("lib\\analyze.png"))
+            ianalyze = Image.open(resource_path("lib/analyze.png"))
             self.abtn = widget.CTkButton(
                 self,
                 text="",
@@ -259,6 +259,8 @@ class DTSGenericReport(widget.CTkFrame):
         self.entries = []
 
     def populate(self, data, correction=False):
+        if data is None:
+            return
         if correction is True:
             self.label.configure(text="Did you mean?")
         for type in data:
@@ -317,12 +319,12 @@ class DTSVirusTotalReport(widget.CTkFrame):
     def render_exception(self, message):
         self.rateMeter.set(0)
         self.result.configure(text=message)
-        self.label.configure(text="Error happened!")
+        self.label.configure(text="---")
         self.knownNames.grid_remove()
         self.magicInfo.grid_remove()
         self.signature.grid_remove()
 
-    def populate(self, data: VirusTotalObject):
+    def populate(self, data: VirusTotalObject | None):
         self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=2)
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
@@ -332,6 +334,10 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.signature.grid(row=6, column=0, padx=4, pady=2)
 
         self.title.configure(text="VirusTotal Report")
+        if data is None:
+            self.render_exception("An unknown error happened!")
+            return
+
         try:
             firstResult = data.data[0].attributes
             firstResultType = data.data[0].type
@@ -437,7 +443,20 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.domain = DTSLabelWithBtn(self, web_btn=True)
         # self.hostnames = CTkTable(self, column=2)
 
-    def populate(self, data: AbuseObject):
+    def render_exception(self, message):
+        self.title.grid(row=0, column=0, padx=4, pady=4)
+        self.label.grid(row=1, column=0, padx=4, pady=2)
+        self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
+        self.result.grid(row=3, column=0, padx=4, pady=2)
+
+        self.title.configure(text="AbuseIPDB Report")
+        self.label.configure(text="---")
+        self.result.configure(text=message)
+
+    def populate(self, data: AbuseObject | None):
+        if data is None:
+            self.render_exception("An unknown error happened")
+            return
         self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=2)
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
@@ -522,8 +541,13 @@ class DTSNISTCVEReport(widget.CTkFrame):
         self.desc.grid_remove()
         self.metrics.grid_remove()
 
-    def populate(self, data: NISTObject):
+    def populate(self, data: NISTObject | None):
         self.clear()
+
+        if data is None:
+            self.render_exception(message="An unknown error happened")
+            return
+
         self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=2)
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
@@ -585,7 +609,7 @@ class DTSTextReport(widget.CTkFrame):
         self.btnFrame = widget.CTkFrame(self)
         self.btnFrame.grid_rowconfigure(0, weight=1)
 
-        i = Image.open(resource_path("lib\\copy.png"))
+        i = Image.open(resource_path("lib/copy.png"))
         self.copyBtn = widget.CTkButton(
             self.btnFrame,
             text="Copy",
@@ -593,7 +617,7 @@ class DTSTextReport(widget.CTkFrame):
             height=20,
             image=widget.CTkImage(dark_image=i, light_image=i, size=(15, 15)),
         )
-        ia = Image.open(resource_path("lib\\analyze.png"))
+        ia = Image.open(resource_path("lib/analyze.png"))
         self.analyzeBtn = widget.CTkButton(
             self.btnFrame,
             text="Analyze",
@@ -788,13 +812,15 @@ class DTSTabView(widget.CTkTabview):
                 )
 
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
+            if data is not None:
+                self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
             self.currentReport = source
 
         elif source == "virustotal":
+            print(f"virustotal with data = {data}")
             if source not in self.reports:
                 self.reports[source] = DTSVirusTotalReport(self.tab("Report"))
                 self.reports[source].grid(
@@ -802,7 +828,8 @@ class DTSTabView(widget.CTkTabview):
                 )
 
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
+            if data is not None:
+                self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
@@ -816,7 +843,8 @@ class DTSTabView(widget.CTkTabview):
                 )
 
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
+            if data is not None:
+                self.textBoxData.insert("0.0", data.model_dump_json(indent=2))
 
             self.hide_other_reports(except_for=source)
             self.reports[source].populate(data)
@@ -847,7 +875,8 @@ class DTSTabView(widget.CTkTabview):
                 )
 
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", originalText)
+            if data is not None:
+                self.textBoxData.insert("0.0", originalText)
 
             self.hide_other_reports(except_for=source)
             self.reports[source].reset()
@@ -876,7 +905,7 @@ class DTSAboutDialog(widget.CTkToplevel):
 
         from PIL import Image
 
-        i = Image.open(resource_path("lib\\icon.png"))
+        i = Image.open(resource_path("lib/icon.png"))
         image = widget.CTkImage(light_image=i, dark_image=i, size=(150, 150))
         self.logo = widget.CTkLabel(self, image=image, text="")
         self.line1 = widget.CTkLabel(
@@ -996,7 +1025,7 @@ class DTSToolBox(widget.CTk):
         self.roboto_normal = font.Font(
             family="Roboto", name="DTSContentFont", size=11, weight="normal"
         )
-        self.iconbitmap(resource_path(".\\lib\\icon.ico"))
+        self.iconbitmap(resource_path("./lib/icon.ico"))
         self.title("Toolbox")
         self.welcomeTexts = [
             "How are you doing today?",
@@ -1114,15 +1143,14 @@ class DTSToolBox(widget.CTk):
         print(f"[ui] data received from {source}")
         self.tabView.stop_loading()
         (id, originalText, data) = box
-        if data is None:
-            print("[ui] data is None")
-            self.tabView.show_previous_report()
-        elif id != self.expectingDataId:
+
+        if id != self.expectingDataId:
             print("[ui] data dropped due to expiration")
         else:
             # dataId expires
             self.expectingDataId = ""
-            self.tabView.history.append((source, originalText, data))
+            if data is not None:
+                self.tabView.history.append((source, originalText, data))
             self.tabView.render_from_worker(source, originalText, data)
 
     # add events to app
