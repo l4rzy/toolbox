@@ -27,6 +27,43 @@ class DataClass(Enum):
     INTERNALIP = 9
 
 
+ABUSE_CATEGORIES = (
+    "None",
+    "DNS Compromise",
+    "DNS Poisoning",
+    "Fraud Orders",
+    "DDoS Attack",
+    "FTP Brute-Force",
+    "Ping of Death",
+    "Phishing",
+    "Fraud VoIP",
+    "Open Proxy",
+    "Web Spam",
+    "Email Spam",
+    "Blog Spam",
+    "VPN IP",
+    "Port Scan",
+    "Hacking",
+    "SQL Injection",
+    "Spoofing",
+    "Brute-Force",
+    "Bad Web Bot",
+    "Exploited Host",
+    "Web App Attack",
+    "SSH",
+    "IoT Targeted",
+)
+
+
+class AbuseReport(BaseModel):
+    reportedAt: str
+    comment: Optional[str] = None
+    categories: List[int]
+    reporterId: Optional[int]
+    reporterCountryCode: Optional[str] = None
+    reporterCountryName: Optional[str] = None
+
+
 class AbuseDataObject(BaseModel):
     ipAddress: str
     isPublic: bool
@@ -42,10 +79,11 @@ class AbuseDataObject(BaseModel):
     totalReports: int
     numDistinctUsers: int
     lastReportedAt: Optional[str]
+    reports: Optional[List[AbuseReport]] = []
 
 
 class AbuseObject(BaseModel):
-    data: AbuseDataObject
+    data: Optional[AbuseDataObject]
 
 
 class VTLastAnalysisStats(BaseModel):
