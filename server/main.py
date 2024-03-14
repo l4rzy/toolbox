@@ -3,13 +3,18 @@ from fastapi.responses import PlainTextResponse
 import uvicorn
 import pycurl
 import io
+import logging
 
 from pydantic import BaseModel
 
+ABUSEIPDB_KEY = ""
+VIRUSTOTAL_KEY = ""
+
 
 class TunnelObject(BaseModel):
+    service: str | None = None
     url: str
-    headers: list[str] | None = None
+    headers: list[str] | None = []
 
 
 class LocalIPDBObject(BaseModel):
@@ -18,6 +23,28 @@ class LocalIPDBObject(BaseModel):
 
 
 app = FastAPI()
+logger = logging.getLogger()
+
+
+def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
+    if target.service == "abuseipdb" or "abuseipdb.com" in target.url:
+        for h in target.headers:
+            if "Key" in h and h != "Key: None":
+                return target
+        logger.warn("missing api key for abuseipdb, using default")
+        target.headers.remove("Key: None")
+        target.headers.append(f"Key: {ABUSEIPDB_KEY}")
+
+    elif target.service == "virustotal" or "virustotal.com" in target.url:
+        for h in target.headers:
+            if "x-apikey" in h and "x-apikey: None" != h:
+                return target
+        logger.warn("missing api key for virustotal, using default")
+        target.headers.remove("x-apikey: None")
+        target.headers.append(f"x-apikey: {VIRUSTOTAL_KEY}")
+    else:
+        pass
+    return target
 
 
 @app.get("/health")
@@ -27,12 +54,12 @@ def get_health():
 
 @app.post("/tunnel", response_class=PlainTextResponse)
 def handle_tunnel(target: TunnelObject):
+    target = process_tunnel_obj(target)
     url = target.url
     headers = target.headers
     print(target)
     try:
         handle = pycurl.Curl()
-        # if self.debug:
 
         handle.setopt(
             pycurl.USERAGENT,
