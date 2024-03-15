@@ -387,7 +387,7 @@ class VirusTotal:
                 ui.render(source="virustotal", box=(id, originalText, virusTotalObject))
 
         if apiKey is None:
-            print("[virustotal] api key not provived, virustotal will not work")
+            print("[virustotal] api key not provived, virustotal might not work")
             self.apiKey = ""
 
         self.ui = ui  # a ref to UI object

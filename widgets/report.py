@@ -434,7 +434,7 @@ class DTSCirclCVEReport(widget.CTkFrame):
         super().__init__(master, **kwargs)
         self.error = False
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(5, weight=1)
+        self.grid_rowconfigure(6, weight=1)
 
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
@@ -473,6 +473,7 @@ class DTSCirclCVEReport(widget.CTkFrame):
 
     def clear(self):
         self.metrics.delete("0.0", "end")
+        self.metrics.grid_remove()
         self.metricsInfo.grid_remove()
 
     def render_exception(self, message="---"):
@@ -521,14 +522,16 @@ class DTSCirclCVEReport(widget.CTkFrame):
             self.desc.set("Desc", shortDesc.strip())
             if data.cvss is None:
                 self.rateMeter.set(0)
+                self.metricsInfo.grid(row=5, column=0, padx=30, pady=6)
+                self.metricsInfo.set("Metrics", "Not available")
                 return
             else:
                 self.rateMeter.set(int(data.cvss * 10))
                 self.metrics.grid(
-                    row=5,
+                    row=6,
                     column=0,
                     padx=6,
-                    pady=10,
+                    pady=6,
                     columnspan=1,
                     rowspan=1,
                     sticky="NSEW",
