@@ -118,7 +118,10 @@ class LibCurl:
 
         if headers is not None:
             handle.setopt(pycurl.HTTPHEADER, headers)
-        handle.perform()
+        try:
+            handle.perform()
+        except Exception as e:
+            print(f"[libcurl] network error: {e}")
         code: int = handle.getinfo(pycurl.RESPONSE_CODE)
         body = buffer.getvalue()
 
@@ -150,8 +153,10 @@ class LibCurl:
         if data is not None:
             datas = json.dumps(data)
             c.setopt(c.POSTFIELDS, datas)
-
-        c.perform()
+        try:
+            c.perform()
+        except Exception as e:
+            print(f"[libcurl] network error: {e}")
         code: int = c.getinfo(pycurl.RESPONSE_CODE)
         body = buffer.getvalue()
 
@@ -228,8 +233,12 @@ class AbuseIPDB:
             (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
-                jsonData = json.loads(body)
-                abuseObject = AbuseObject(**jsonData)
+                try:
+                    jsonData = json.loads(body)
+                    abuseObject = AbuseObject(**jsonData)
+                except Exception as e:
+                    print(f"[worker-abuseipdb] error: {e}")
+                    abuseObject = None
                 ui.render(source="abuseipdb", box=(id, originalText, abuseObject))
 
         if apiKey is None:
@@ -281,8 +290,12 @@ class Shodan:
             (code, originalText, body) = response
             print(body)
             if code == 200 and body != "":
-                jsonData = json.loads(body)
-                shodanObject = ShodanObject(**jsonData)
+                try:
+                    jsonData = json.loads(body)
+                    shodanObject = ShodanObject(**jsonData)
+                except Exception as e:
+                    print(f"[worker-shodan] error: {e}")
+                    shodanObject = None
                 ui.render(source="shodan", box=(id, originalText, shodanObject))
 
         if apiKey is None:
@@ -365,8 +378,12 @@ class VirusTotal:
             (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
-                jsonData = json.loads(body)
-                virusTotalObject = VirusTotalObject(**jsonData)
+                try:
+                    jsonData = json.loads(body)
+                    virusTotalObject = VirusTotalObject(**jsonData)
+                except Exception as e:
+                    print(f"[worker-virustotal] error: {e}")
+                    virusTotalObject = None
                 ui.render(source="virustotal", box=(id, originalText, virusTotalObject))
 
         if apiKey is None:
@@ -417,8 +434,12 @@ class NISTCVE:
             (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
-                jsonData = json.loads(body)
-                nistObject = NISTObject(**jsonData)
+                try:
+                    jsonData = json.loads(body)
+                    nistObject = NISTObject(**jsonData)
+                except Exception as e:
+                    print(f"[worker-nist] error: {e}")
+                    nistObject = None
                 ui.render(source="cve", box=(id, originalText, nistObject))
 
         self.ui = ui  # a ref to UI object
@@ -447,7 +468,7 @@ class NISTCVE:
                 self.timeout(id, cve, 10000)
                 self.curl.query(id, cve, url)
         except Exception as e:
-            print(f"[worker-cve] error: {e}")
+            print(f"[worker-nist] error: {e}")
             self.ui.render(source="cve", box=(id, cve, None))
 
 
@@ -457,11 +478,15 @@ class CirclCVE:
             (code, originalText, body) = response
             # parse response, since result is json
             if code == 200 and body != "":
-                if body == "null":
-                    jsonData = {}
-                else:
-                    jsonData = json.loads(body)
-                circlObject = CirclCVEObject(**jsonData)
+                try:
+                    if body == "null":
+                        jsonData = {}
+                    else:
+                        jsonData = json.loads(body)
+                    circlObject = CirclCVEObject(**jsonData)
+                except Exception as e:
+                    print(f"[worker-circl] error: {e}")
+                    circlObject = None
                 ui.render(source="circlcve", box=(id, originalText, circlObject))
 
         self.ui = ui  # a ref to UI object
@@ -490,7 +515,7 @@ class CirclCVE:
                 self.timeout(id, cve, 10000)
                 self.curl.query(id, cve, url)
         except Exception as e:
-            print(f"[worker-circlcve] error: {e}")
+            print(f"[worker-circl] error: {e}")
             self.ui.render(source="cve", box=(id, cve, None))
 
 

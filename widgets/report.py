@@ -241,7 +241,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.result.grid(row=3, column=0, padx=4, pady=2)
 
         self.title.configure(text="AbuseIPDB Report")
-        self.label.configure("Error", "Unknown")
+        self.label.set("Error", "Unknown")
         self.result.configure(text=message)
         self.error = True
 
