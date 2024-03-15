@@ -16,6 +16,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
         web_btn=False,
         copy_btn=True,
         analyze_btn=False,
+        direct_btn=False,
         max_width=400,
         **kwargs,
     ):
@@ -39,7 +40,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
         self.abtn = None
 
         if copy_btn:
-            icpy = Image.open(resource_path("lib/copy.png"))
+            icpy = Image.open(resource_path("lib/icons/copy.png"))
             self.cbtn = widget.CTkButton(
                 self,
                 text="",
@@ -48,7 +49,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
                 image=widget.CTkImage(dark_image=icpy, light_image=icpy, size=(15, 15)),
             )
         if web_btn:
-            iweb = Image.open(resource_path("lib/web.png"))
+            iweb = Image.open(resource_path("lib/icons/web.png"))
             self.wbtn = widget.CTkButton(
                 self,
                 text="",
@@ -57,7 +58,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
                 image=widget.CTkImage(dark_image=iweb, light_image=iweb, size=(15, 15)),
             )
         if analyze_btn:
-            ianalyze = Image.open(resource_path("lib/analyze.png"))
+            ianalyze = Image.open(resource_path("lib/icons/analyze.png"))
             self.abtn = widget.CTkButton(
                 self,
                 text="",
@@ -119,6 +120,14 @@ class DTSLabelWithBtn(widget.CTkFrame):
             self.wbtn.grid_remove()
         if self.abtn:
             self.abtn.grid_remove()
+
+
+class DTSButton(widget.CTkButton):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, self.cb_on_click, **kwargs)
+
+    def cb_on_click(self):
+        pass
 
 
 class DTSHistory(CTkListbox):

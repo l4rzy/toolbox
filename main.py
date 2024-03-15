@@ -9,6 +9,9 @@ widget.set_default_color_theme(resource_path("lib/theme.json"))
 widget.set_appearance_mode("dark")
 
 
+app = DTSToolBox()
+
+
 def sigint_handler(sig, frame):
     app.exit_gracefully()
     sys.exit(-1)
@@ -16,6 +19,4 @@ def sigint_handler(sig, frame):
 
 signal.signal(signal.SIGINT, sigint_handler)
 
-
-app = DTSToolBox()
 app.run()

@@ -87,14 +87,14 @@ class AbuseObject(BaseModel):
 
 
 class VTLastAnalysisStats(BaseModel):
-    harmless: int = 0
+    harmless: Optional[int] = 0
     type_unsupported: Optional[int] = None  # Field(..., alias="type-unsupported")
-    suspicious: int = 0
+    suspicious: Optional[int] = 0
     confirmed_timeout: Optional[int] = None  # Field(..., alias="confirmed-timeout")
-    timeout: int = 0
+    timeout: Optional[int] = 0
     failure: Optional[int] = None
-    malicious: int = 0
-    undetected: int = 0
+    malicious: Optional[int] = 0
+    undetected: Optional[int] = 0
 
 
 class VTSignatureInfo(BaseModel):

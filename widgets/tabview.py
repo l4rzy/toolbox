@@ -9,7 +9,7 @@ from .report import (
     DTSNISTCVEReport,
 )
 
-from widgets.custom import DTSLoading, DTSHistory, DTSLog
+from widgets.common import DTSLoading, DTSHistory, DTSLog
 from widgets.preferences import DTSPreferences
 
 from lib.analyzer import DTSAnalyzer
@@ -183,7 +183,6 @@ class DTSTabView(widget.CTkTabview):
             title = f"Report for {source.upper()}"
 
             self.textBoxData.delete("0.0", "end")
-            self.textBoxData.insert("0.0", "Nothing to show here ¯\_(ツ)_/¯")
 
             self.hide_other_reports(except_for="text")
             self.reports["text"].populate(data, title=title)

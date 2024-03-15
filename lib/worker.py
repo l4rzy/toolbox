@@ -3,7 +3,13 @@ import json
 import threading
 import pycurl
 from .util import resource_path
-from .structure import AbuseObject, VirusTotalObject, ShodanObject, NISTObject, CirclCVEObject
+from .structure import (
+    AbuseObject,
+    VirusTotalObject,
+    ShodanObject,
+    NISTObject,
+    CirclCVEObject,
+)
 import ouilookup
 import ipaddress
 import csv
@@ -208,7 +214,7 @@ class Base64Decoder:
         import base64
 
         try:
-            result = base64.b64decode(s.encode("utf-8"))
+            result = base64.b64decode(s, validate=True)
             decodedText = result.decode("utf-8")  # will add detection later
         except Exception as e:
             print(f"[base64decoder] encounter error: {e}")
@@ -251,7 +257,7 @@ class AbuseIPDB:
             "Key": self.apiKey,
             "Accept": "application/json",
         }
-        url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={text}&maxAgeInDays={maxAge}"
+        url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={text}&verbose&maxAgeInDays={maxAge}"
         try:
             if self.internetConfig[0] is not None:
                 self.timeout(id, text, 4000)
@@ -487,6 +493,7 @@ class CirclCVE:
             print(f"[worker-circlcve] error: {e}")
             self.ui.render(source="cve", box=(id, cve, None))
 
+
 class MacAddress:
     def __init__(self, ui):
         self.ui = ui
@@ -600,7 +607,7 @@ class DTSWorker:
             elif t == "cve":
                 # disable nist cve since they are slow and require api token now
                 # self.nistCVE.query(id, text)
-                self. circleCVE.query(id, text)
+                self.circleCVE.query(id, text)
             elif t == "netuser":
                 self.netUser.query(id, text)
             elif t == "base64":

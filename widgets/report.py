@@ -1,6 +1,9 @@
 import customtkinter as widget
-from lib.tkdial import Meter
+from PIL import Image
 from iso3166 import countries
+from collections import Counter
+
+from lib.tkdial import Meter
 from lib.util import resource_path, unique
 from lib.structure import (
     AbuseObject,
@@ -10,9 +13,7 @@ from lib.structure import (
     CirclCVEObject,
     DTSInputSource,
 )
-
-from .custom import DTSLabelWithBtn
-from PIL import Image
+from widgets.common import DTSLabelWithBtn
 
 
 class DTSGenericReport(widget.CTkFrame):
@@ -275,6 +276,14 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         if data.data.countryCode != "null":
             country = countries.get(data.data.countryCode)
             self.country.set("Country", f"{country.name}")
+
+        if data.data.abuseConfidenceScore != 0 and data.data.reports is not None:
+            categories = []
+            for r in data.data.reports:
+                categories += r.categories
+
+            c = Counter(categories)
+            print(c)
         self.error = False
 
 
@@ -552,10 +561,13 @@ class DTSTextReport(widget.CTkFrame):
             source=DTSInputSource.TEXT_REPORT, text=self.textContent.get("0.0", "end")
         )
 
-    def populate(self, result: str, title="Text Report"):
+    def populate(self, data, title="Text Report"):
         self.title.configure(text=title)
         self.clear()
-        self.textContent.insert("0.0", result)
+        if data is not None:
+            self.textContent.insert("0.0", data)
+        else:
+            self.textContent.insert("0.0", "[An error happened]")
 
     def clear(self):
         self.textContent.delete("0.0", "end")
