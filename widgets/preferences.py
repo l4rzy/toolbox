@@ -22,7 +22,7 @@ class DTSAboutDialog(widget.CTkToplevel):
 
         from PIL import Image
 
-        i = Image.open(resource_path("lib/icon.png"))
+        i = Image.open(resource_path("lib/icons/icon.png"))
         image = widget.CTkImage(light_image=i, dark_image=i, size=(150, 150))
         self.logo = widget.CTkLabel(self, image=image, text="")
         self.line1 = widget.CTkLabel(

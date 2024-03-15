@@ -31,7 +31,7 @@ class DTSGenericReport(widget.CTkFrame):
         self.label.grid(row=1, column=0, padx=4, pady=5)
         self.entries = []
         self.row = 2
-        self.maxRow = 12
+        self.maxRow = 10
         self.reset()
 
     def reset(self):
@@ -196,7 +196,6 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         super().__init__(master, **kwargs)
         self.error = False
         self.grid_columnconfigure(0, weight=1)
-        # self.grid_rowconfigure(0, weight=1)
 
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
@@ -267,9 +266,6 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.usageType.grid(row=5, column=0)
         self.domain.grid(row=6, column=0)
         self.country.grid(row=7, column=0)
-        self.reportCategories.grid(
-            row=8, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW"
-        )
 
         self.title.configure(text="AbuseIPDB Report")
         self.label.set(
@@ -312,9 +308,11 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             textbuf = "Reported reason:\n"
             for catnum, times in reportedCats:
                 textbuf += f"- {ABUSE_CATEGORIES[catnum]}: {times} {'times' if times > 1 else 'time'}\n"
+            self.reportCategories.grid(
+                row=8, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW"
+            )
             self.reportCategories.insert("0.0", textbuf)
-        else:
-            self.reportCategories.insert("0.0", "---")
+
         self.error = False
 
 
@@ -465,24 +463,28 @@ class DTSCirclCVEReport(widget.CTkFrame):
         self.rateMeter.set_mark(76, 100, "red")
 
         self.desc = DTSLabelWithBtn(self, copy_btn=False, max_width=500)
+        self.metricsInfo = DTSLabelWithBtn(self, copy_btn=False, max_width=500)
         self.metrics = widget.CTkTextbox(
             self, font=widget.CTkFont(family="Consolas", size=14)
         )
 
     def clear(self):
         self.metrics.delete("0.0", "end")
+        self.metricsInfo.grid_remove()
 
     def render_exception(self, message="---"):
         self.rateMeter.set(0)
         self.label.set("Error", "Unknown")
         self.result.configure(text=message)
         self.desc.grid_remove()
+        self.metricsInfo.grid_remove()
         self.metrics.grid_remove()
         self.error = True
 
     def populate(self, data: CirclCVEObject | None):
         self.clear()
 
+        self.title.configure(text="CIRCL's CVE Report")
         if data is None:
             self.render_exception(
                 message="A network error happened! Check your internet settings."
@@ -495,18 +497,12 @@ class DTSCirclCVEReport(widget.CTkFrame):
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
         self.result.grid(row=3, column=0, padx=4, pady=2)
         self.desc.grid(row=4, column=0, padx=30, pady=10, sticky="NSEW")
-        self.metrics.grid(
-            row=5, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW"
-        )
-
-        self.title.configure(text="CIRCL's CVE Report")
 
         if data.id is None:
             self.render_exception("CVE not found!")
             return
 
         try:
-            # self.label.configure(text=f"for {data.id}")
             self.label.set("for", data.id, f"https://cve.circl.lu/cve/{data.id}")
             self.result.configure(text=f"Published on {data.Published}")
             desc = data.summary
@@ -522,17 +518,25 @@ class DTSCirclCVEReport(widget.CTkFrame):
             self.desc.set("Desc", shortDesc.strip())
             if data.cvss is None:
                 self.rateMeter.set(0)
-                self.metrics.insert("0.0", "Metrics not found!")
                 return
-
-            self.rateMeter.set(int(data.cvss * 10))
-            self.metrics.insert(
-                "0.0",
-                "Access: "
-                + data.access.model_dump_json(indent=2)
-                + "\n\nImpact: "
-                + data.impact.model_dump_json(indent=2),
-            )
+            else:
+                self.rateMeter.set(int(data.cvss * 10))
+                self.metrics.grid(
+                    row=5,
+                    column=0,
+                    padx=6,
+                    pady=10,
+                    columnspan=1,
+                    rowspan=1,
+                    sticky="NSEW",
+                )
+                self.metrics.insert(
+                    "0.0",
+                    "Access: "
+                    + data.access.model_dump_json(indent=2)
+                    + "\n\nImpact: "
+                    + data.impact.model_dump_json(indent=2),
+                )
             self.error = False
 
         except Exception as e:
