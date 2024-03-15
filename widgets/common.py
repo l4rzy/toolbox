@@ -38,6 +38,7 @@ class DTSLabelWithBtn(widget.CTkFrame):
         self.cbtn = None
         self.wbtn = None
         self.abtn = None
+        self.dbtn = None
 
         if copy_btn:
             icpy = Image.open(resource_path("lib/icons/copy.png"))
@@ -68,6 +69,17 @@ class DTSLabelWithBtn(widget.CTkFrame):
                     dark_image=ianalyze, light_image=ianalyze, size=(15, 15)
                 ),
             )
+        if direct_btn:
+            idirect = Image.open(resource_path("lib/icons/direct.png"))
+            self.dbtn = widget.CTkButton(
+                self,
+                text="",
+                width=30,
+                height=20,
+                image=widget.CTkImage(
+                    dark_image=idirect, light_image=idirect, size=(15, 15)
+                ),
+            )
 
         self.label.grid(column=0, row=0, padx=2, pady=4)
         self.content.grid(column=1, row=0, padx=2, pady=4)
@@ -79,6 +91,9 @@ class DTSLabelWithBtn(widget.CTkFrame):
             self.wbtn.bind("<Button-1>", self.cb_on_web_btn_click)
         if analyze_btn:
             self.abtn.bind("<Button-1>", self.cb_on_analyze_btn_click)
+        if direct_btn:
+            self.directLink = ""
+            self.dbtn.bind("<Button-1>", self.cb_on_direct_btn_click)
 
     def cb_on_copy_btn_click(self, event):
         self.clipboard_clear()
@@ -98,18 +113,33 @@ class DTSLabelWithBtn(widget.CTkFrame):
             source=DTSInputSource.GENERIC_REPORT, text=self.content.cget("text")
         )
 
-    def set(self, label, content):
+    def cb_on_direct_btn_click(self, event):
+        import webbrowser
+
+        webbrowser.open_new_tab(self.directLink)
+
+    def set(self, label, content, directLink=""):
         self.label.configure(text=f"{label}:")
         self.content.configure(text=content)
         if self.cbtn:
-            self.cbtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
-            self.currentCol += 1
+            if label != "Error":
+                self.cbtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
+                self.currentCol += 1
+            else:
+                self.cbtn.grid_remove()
         if self.wbtn:
             self.wbtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
             self.currentCol += 1
         if self.abtn:
             self.abtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
             self.currentCol += 1
+        if self.dbtn:
+            if directLink != "":
+                self.dbtn.grid(column=self.currentCol, row=0, padx=4, pady=4)
+                self.currentCol += 1
+                self.directLink = directLink
+            else:
+                self.dbtn.grid_remove()
 
     def clear(self):
         self.label.configure(text="")
@@ -120,6 +150,9 @@ class DTSLabelWithBtn(widget.CTkFrame):
             self.wbtn.grid_remove()
         if self.abtn:
             self.abtn.grid_remove()
+        if self.dbtn:
+            self.dbtn.grid_remove()
+            self.directLink = ""
 
 
 class DTSButton(widget.CTkButton):

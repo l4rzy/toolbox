@@ -31,7 +31,7 @@ class DTSToolBox(widget.CTk):
             family="Roboto", name="DTSContentFont", size=11, weight="normal"
         )
         if sys.platform == "win32":
-            self.iconbitmap(resource_path("lib/icon.ico"))
+            self.iconbitmap(resource_path("lib/icons/icon.ico"))
         self.title("Toolbox")
         self.welcomeTexts = [
             "How are you doing today?",

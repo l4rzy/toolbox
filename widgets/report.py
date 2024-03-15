@@ -12,6 +12,7 @@ from lib.structure import (
     NISTObject,
     CirclCVEObject,
     DTSInputSource,
+    ABUSE_CATEGORIES,
 )
 from widgets.common import DTSLabelWithBtn
 
@@ -68,9 +69,10 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
         )
-        self.label = widget.CTkLabel(
-            self, justify="center", font=widget.CTkFont(size=14)
+        self.label = DTSLabelWithBtn(
+            self, web_btn=False, copy_btn=True, analyze_btn=False, direct_btn=True
         )
+
         self.result = widget.CTkLabel(self, justify="center")
         self.rateMeter = Meter(
             self,
@@ -101,7 +103,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
     def render_exception(self, message):
         self.rateMeter.set(0)
         self.result.configure(text=message)
-        self.label.configure(text="---")
+        self.label.set("Error", "Unknown")
         self.knownNames.grid_remove()
         self.magicInfo.grid_remove()
         self.signature.grid_remove()
@@ -125,7 +127,11 @@ class DTSVirusTotalReport(widget.CTkFrame):
         try:
             firstResult = data.data[0].attributes
             firstResultType = data.data[0].type
-            self.label.configure(text=f"for {data.data[0].type}: {data.data[0].id}")
+            self.label.set(
+                "for",
+                f"({data.data[0].type}) {data.data[0].id}",
+                f"https://www.virustotal.com/gui/{firstResultType}/{data.data[0].id}",
+            )
             assert isinstance(firstResult, VTAttributes)
         except IndexError:
             self.render_exception("Resource not found on VirusTotal!")
@@ -195,8 +201,8 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
         )
-        self.label = widget.CTkLabel(
-            self, justify="center", font=widget.CTkFont(size=14)
+        self.label = DTSLabelWithBtn(
+            self, web_btn=False, copy_btn=True, analyze_btn=False, direct_btn=True
         )
         self.result = widget.CTkLabel(self, justify="center")
         self.rateMeter = Meter(
@@ -223,9 +229,11 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
 
         self.isp = DTSLabelWithBtn(self)
         self.usageType = DTSLabelWithBtn(self)
-        self.country = DTSLabelWithBtn(self)
         self.domain = DTSLabelWithBtn(self, web_btn=True)
-        # self.hostnames = CTkTable(self, column=2)
+        self.country = DTSLabelWithBtn(self)
+        self.reportCategories = widget.CTkTextbox(
+            self, font=widget.CTkFont(family="Consolas", size=14)
+        )
 
     def render_exception(self, message):
         self.title.grid(row=0, column=0, padx=4, pady=4)
@@ -234,9 +242,12 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.result.grid(row=3, column=0, padx=4, pady=2)
 
         self.title.configure(text="AbuseIPDB Report")
-        self.label.configure(text="---")
+        self.label.configure("Error", "Unknown")
         self.result.configure(text=message)
         self.error = True
+
+    def clear(self):
+        self.reportCategories.delete("0.0", "end")
 
     def populate(self, data: AbuseObject | None):
         if data is None:
@@ -245,6 +256,9 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             )
             self.error = True
             return
+
+        self.clear()
+
         self.title.grid(row=0, column=0, padx=4, pady=4)
         self.label.grid(row=1, column=0, padx=4, pady=2)
         self.rateMeter.grid(row=2, column=0, padx=10, pady=20)
@@ -253,9 +267,16 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         self.usageType.grid(row=5, column=0)
         self.domain.grid(row=6, column=0)
         self.country.grid(row=7, column=0)
+        self.reportCategories.grid(
+            row=8, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW"
+        )
 
         self.title.configure(text="AbuseIPDB Report")
-        self.label.configure(text=f"for {data.data.ipAddress}")
+        self.label.set(
+            "for",
+            data.data.ipAddress,
+            f"https://www.abuseipdb.com/check/{data.data.ipAddress}",
+        )
         if not data.data.isPublic:
             self.result.configure(text="This IP is a private IP")
             self.rateMeter.set(data.data.abuseConfidenceScore)
@@ -276,14 +297,24 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         if data.data.countryCode != "null":
             country = countries.get(data.data.countryCode)
             self.country.set("Country", f"{country.name}")
+        else:
+            self.country.set("Country", "Unknown")
 
         if data.data.abuseConfidenceScore != 0 and data.data.reports is not None:
             categories = []
             for r in data.data.reports:
                 categories += r.categories
 
-            c = Counter(categories)
-            print(c)
+            reportedCats = sorted(
+                Counter(categories).items(), key=lambda x: x[1], reverse=True
+            )
+
+            textbuf = "Reported reason:\n"
+            for catnum, times in reportedCats:
+                textbuf += f"- {ABUSE_CATEGORIES[catnum]}: {times} {'times' if times > 1 else 'time'}\n"
+            self.reportCategories.insert("0.0", textbuf)
+        else:
+            self.reportCategories.insert("0.0", "---")
         self.error = False
 
 
@@ -407,8 +438,8 @@ class DTSCirclCVEReport(widget.CTkFrame):
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
         )
-        self.label = widget.CTkLabel(
-            self, justify="center", font=widget.CTkFont(size=14)
+        self.label = DTSLabelWithBtn(
+            self, web_btn=False, copy_btn=True, analyze_btn=False, direct_btn=True
         )
         self.result = widget.CTkLabel(self, justify="center")
         self.rateMeter = Meter(
@@ -443,7 +474,7 @@ class DTSCirclCVEReport(widget.CTkFrame):
 
     def render_exception(self, message="---"):
         self.rateMeter.set(0)
-        self.label.configure(text="An error happened")
+        self.label.set("Error", "Unknown")
         self.result.configure(text=message)
         self.desc.grid_remove()
         self.metrics.grid_remove()
@@ -475,7 +506,8 @@ class DTSCirclCVEReport(widget.CTkFrame):
             return
 
         try:
-            self.label.configure(text=f"for {data.id}")
+            # self.label.configure(text=f"for {data.id}")
+            self.label.set("for", data.id, f"https://cve.circl.lu/cve/{data.id}")
             self.result.configure(text=f"Published on {data.Published}")
             desc = data.summary
             if len(desc) > 450:
@@ -521,7 +553,7 @@ class DTSTextReport(widget.CTkFrame):
         self.btnFrame = widget.CTkFrame(self)
         self.btnFrame.grid_rowconfigure(0, weight=1)
 
-        i = Image.open(resource_path("lib/copy.png"))
+        i = Image.open(resource_path("lib/icons/copy.png"))
         self.copyBtn = widget.CTkButton(
             self.btnFrame,
             text="Copy",
@@ -529,7 +561,7 @@ class DTSTextReport(widget.CTkFrame):
             height=20,
             image=widget.CTkImage(dark_image=i, light_image=i, size=(15, 15)),
         )
-        ia = Image.open(resource_path("lib/analyze.png"))
+        ia = Image.open(resource_path("lib/icons/analyze.png"))
         self.analyzeBtn = widget.CTkButton(
             self.btnFrame,
             text="Analyze",

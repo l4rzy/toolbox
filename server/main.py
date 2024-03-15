@@ -32,7 +32,10 @@ def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
             if "Key" in h and h != "Key: None":
                 return target
         logger.warn("missing api key for abuseipdb, using default")
-        target.headers.remove("Key: None")
+        try:
+            target.headers.remove("Key: None")
+        except Exception:
+            pass
         target.headers.append(f"Key: {ABUSEIPDB_KEY}")
 
     elif target.service == "virustotal" or "virustotal.com" in target.url:
@@ -40,7 +43,10 @@ def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
             if "x-apikey" in h and "x-apikey: None" != h:
                 return target
         logger.warn("missing api key for virustotal, using default")
-        target.headers.remove("x-apikey: None")
+        try:
+            target.headers.remove("x-apikey: None")
+        except Exception:
+            pass
         target.headers.append(f"x-apikey: {VIRUSTOTAL_KEY}")
     else:
         pass
