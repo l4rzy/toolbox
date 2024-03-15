@@ -62,7 +62,7 @@ class DTSGenericReport(widget.CTkFrame):
 class DTSVirusTotalReport(widget.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-
+        self.error = False
         self.grid_columnconfigure(0, weight=1)
         # self.grid_rowconfigure(0, weight=1)
 
@@ -107,6 +107,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
         self.knownNames.grid_remove()
         self.magicInfo.grid_remove()
         self.signature.grid_remove()
+        self.error = True
 
     def populate(self, data: VirusTotalObject | None):
         self.title.grid(row=0, column=0, padx=4, pady=4)
@@ -167,6 +168,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
                 if (signature is not None and signature.verified is not None)
                 else "No",
             )
+            self.error = False
 
         elif firstResultType in ("domain", "url"):
             totalVendors = (
@@ -185,6 +187,7 @@ class DTSVirusTotalReport(widget.CTkFrame):
             )
             self.magicInfo.grid_remove()
             self.signature.grid_remove()
+            self.error = False
         else:
             self.render_exception(
                 f"Unknown VirusTotal result type of `{firstResultType}`"
@@ -305,7 +308,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
                 Counter(categories).items(), key=lambda x: x[1], reverse=True
             )
 
-            textbuf = "Reported reason:\n"
+            textbuf = "Reported reasons:\n"
             for catnum, times in reportedCats:
                 textbuf += f"- {ABUSE_CATEGORIES[catnum]}: {times} {'times' if times > 1 else 'time'}\n"
             self.reportCategories.grid(
@@ -602,8 +605,10 @@ class DTSTextReport(widget.CTkFrame):
         self.clear()
         if data is not None:
             self.textContent.insert("0.0", data)
+            self.error = False
         else:
             self.textContent.insert("0.0", "[An error happened]")
+            self.error = True
 
     def clear(self):
         self.textContent.delete("0.0", "end")
