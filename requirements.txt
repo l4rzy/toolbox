@@ -4,5 +4,7 @@ customtkinter==5.2.2
 iso3166==2.1.1
 Pillow==10.2.0
 pycurl==7.45.1
-pydantic==2.5.3
-pysimdjson==5.0.2
+pydantic==2.6.4
+tesserocr==2.6.2
+validators==0.22.0
+ouilookup==0.3.1
