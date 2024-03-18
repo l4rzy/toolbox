@@ -77,7 +77,7 @@ dimension = 640x800+800+378
     def get_local_ip_db(self) -> str:
         val = self.get("general", "localipdb")
         if val is None:
-            val = "localIPDB.csv"
+            val = "data/localIPDB.csv"
         return val
 
     def get_network_debug(self):

@@ -14,7 +14,16 @@ import ouilookup
 import ipaddress
 import csv
 from functools import cache
+from enum import Enum
 import socket
+
+
+class TunnelService(str, Enum):
+    ABUSEIPDB = "abuseipdb"
+    VIRUSTOTAL = "virustotal"
+    CIRCLCVE = "circl"
+    SHODAN = "shodan"
+    LOCALIP = "localip"
 
 
 class CmdWrapper:
@@ -274,7 +283,11 @@ class AbuseIPDB:
                 pc_headers = []
                 for header, value in headers.items():
                     pc_headers.append(f"{header}: {value}")
-                data = {"url": url, "headers": pc_headers}
+                data = {
+                    "service": TunnelService.ABUSEIPDB,
+                    "url": url,
+                    "headers": pc_headers,
+                }
                 self.curl.tunnel(id, text, tunnelUrl, data)
             else:
                 self.timeout(id, text, 8000)
@@ -323,7 +336,7 @@ class Shodan:
             if self.internetConfig[0] is not None:
                 self.timeout(id, text, 4000)
                 tunnelUrl = self.internetConfig[0]
-                data = {"url": url}
+                data = {"service": TunnelService.SHODAN, "url": url}
                 self.curl.tunnel(id, text, tunnelUrl, data)
             else:
                 self.timeout(id, text, 8000)
@@ -337,7 +350,8 @@ class LocalIPWizard:
     def __init__(self, ui):
         self.ui = ui
         ipdb = ui.config.get_local_ip_db()
-        self.ipInfo = LocalIpInfo(dataFile=ipdb)
+        self.tunnel = ui.config.get_tunnel_string()
+        self.ipInfo = LocalIpInfo(dataFile=ipdb, tunnel=self.tunnel)
 
     def thread_fn(self, id, host, callback, reverse):
         ipInfo = ""
@@ -418,7 +432,11 @@ class VirusTotal:
                 pc_headers = []
                 for header, value in headers.items():
                     pc_headers.append(f"{header}: {value}")
-                data = {"url": url, "headers": pc_headers}
+                data = {
+                    "service": TunnelService.VIRUSTOTAL,
+                    "url": url,
+                    "headers": pc_headers,
+                }
                 self.curl.tunnel(id, hash, tunnelUrl, data)
             else:
                 self.timeout(id, hash, 10000)
@@ -509,7 +527,7 @@ class CirclCVE:
             if self.internetConfig[0] is not None:
                 self.timeout(id, cve, 5000)
                 tunnelUrl = self.internetConfig[0]
-                data = {"url": url}
+                data = {"service": TunnelService.CIRCLCVE, "url": url}
                 self.curl.tunnel(id, cve, tunnelUrl, data)
             else:
                 self.timeout(id, cve, 10000)
@@ -547,20 +565,57 @@ class MacAddress:
 
 
 class LocalIpInfo:
-    def __init__(self, dataFile):
+    def __init__(self, dataFile, tunnel=None):
         self.db = None
         self.dataFile = dataFile
+        self.tunnel = tunnel
+        self.disabled = False
 
-    def remote_query(self, ip):
-        pass
+    def remote_query(self, ip4, ip6=None):
+        """
+        offload the work to tunnel for more control over database
+        """
+        c = pycurl.Curl()
+        c.setopt(c.URL, self.tunnel)
+        buffer = io.BytesIO()
+        c.setopt(pycurl.WRITEFUNCTION, buffer.write)
+        c.setopt(
+            pycurl.USERAGENT,
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+        )
+        headers = ["Accept:application/json", "Content-Type:application/json"]
+
+        c.setopt(pycurl.HTTPHEADER, headers)
+        datas = json.dumps({"service": TunnelService.LOCALIP, "ip": ip4})
+        c.setopt(c.POSTFIELDS, datas)
+        try:
+            c.perform()
+        except Exception as e:
+            print(f"[libcurl] network error: {e}")
+        code: int = c.getinfo(pycurl.RESPONSE_CODE)
+        body = buffer.getvalue()
+        c.close()
+        buffer.close()
+
+        if code == 200:
+            return body
+        else:
+            return f"Local IP {ip4} not found in database!"
+
 
     def query(self, ip):
+        if self.tunnel is not None:
+            return self.remote_query(ip)
         if self.db is None:
-            file = open(self.dataFile, "rt")
-            reader = csv.reader(file, delimiter=",")
-            # schema cidr,usage,location,comment
-            self.db = list(reader)
-            file.close()
+            try:
+                file = open(self.dataFile, "rt")
+                reader = csv.reader(file, delimiter=",")
+                # schema cidr,usage,location,comment
+                self.db = list(reader)
+                file.close()
+            except Exception as e:
+                print(f"[localipinfo] error: {e}")
+                self.disabled = True
         res = f"Local IP {ip} not found in database!"
 
         for row in self.db:
@@ -575,10 +630,22 @@ class LocalIpInfo:
 
 class TesserOCR:
     def __init__(self, ui):
+        """
+        Initiates PyTessBaseAPI lazily
+        TODO: enhancing images before passing to tesseract
+        """
         from tesserocr import PyTessBaseAPI
+        import os
 
         self.ui = ui
-        self.api = PyTessBaseAPI("data")
+        if os.path.isfile("data/eng.traineddata"):
+            self.api = PyTessBaseAPI("data")
+            self.disabled = False
+        else:
+            print(
+                "[worker-ocr] error: OCR data file not found, this feature will not work"
+            )
+            self.disabled = True
 
     def thread_fn(self, id, img, callback):
         try:
@@ -590,6 +657,13 @@ class TesserOCR:
         callback(id, res)
 
     def query(self, id, img):
+        if self.disabled:
+            self.ui.render(
+                source="ocr",
+                box=(id, "image from clipboard", "<error: no ocr data found>"),
+            )
+            return
+
         def thread_callback(id, response):
             self.ui.render(
                 source="ocr",

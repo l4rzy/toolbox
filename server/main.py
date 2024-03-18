@@ -4,30 +4,73 @@ import uvicorn
 import pycurl
 import io
 import logging
+import csv
+import ipaddress
 
 from pydantic import BaseModel
+from enum import Enum
+from typing import Optional
+
+VERSION_MAJOR = 0
+VERSION_MINOR = 4
+VERSION_PATCH = 5
+VERSION_DATE = "2024 Mar 18"
 
 ABUSEIPDB_KEY = ""
 VIRUSTOTAL_KEY = ""
 
 
+class TunnelService(str, Enum):
+    ABUSEIPDB = "abuseipdb"
+    VIRUSTOTAL = "virustotal"
+    CIRCLCVE = "circl"
+    SHODAN = "shodan"
+    LOCALIP = "localip"
+
+
 class TunnelObject(BaseModel):
-    service: str | None = None
-    url: str
-    headers: list[str] | None = []
+    service: TunnelService
+    url: Optional[str] = ""
+    ip: Optional[str] = ""
+    headers: Optional[list[str]] = []
 
 
-class LocalIPDBObject(BaseModel):
-    ip4: str
-    ip6: str | None = None
+class LocalIpInfo:
+    def __init__(self, dataFile):
+        self.db = None
+        self.dataFile = dataFile
+        self.disabled = False
+
+    async def query(self, ip):
+        if self.db is None:
+            try:
+                file = open(self.dataFile, "rt")
+                reader = csv.reader(file, delimiter=",")
+                # schema cidr,usage,location,comment
+                self.db = list(reader)
+                file.close()
+            except Exception as e:
+                print(f"[localipinfo] error: {e}")
+                self.disabled = True
+        res = f"Local IP {ip} not found in database!"
+
+        for row in self.db:
+            try:
+                if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(row[0]):
+                    res = f"Local IP Address {ip} belongs to {row[0]}\nUsed for: {row[1]}\nLocated at: {row[2]}\nComment: {row[3]}"
+            except Exception:
+                continue
+
+        return res
 
 
-app = FastAPI(title="DTS Toolbox", openapi_url=None, redoc_url=None)
+app = FastAPI(title="DTS Toolbox", redoc_url=None)
+localIPInfo = LocalIpInfo("localIPDB.csv")
 logger = logging.getLogger()
 
 
-def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
-    if target.service == "abuseipdb" or "abuseipdb.com" in target.url:
+async def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
+    if target.service == TunnelService.ABUSEIPDB:
         for h in target.headers:
             if "Key" in h and h != "Key: None":
                 return target
@@ -38,7 +81,7 @@ def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
             pass
         target.headers.append(f"Key: {ABUSEIPDB_KEY}")
 
-    elif target.service == "virustotal" or "virustotal.com" in target.url:
+    elif target.service == TunnelService.VIRUSTOTAL:
         for h in target.headers:
             if "x-apikey" in h and "x-apikey: None" != h:
                 return target
@@ -54,14 +97,20 @@ def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
 
 
 @app.get("/health")
-def get_health():
-    return {"health": "ok"}
+async def get_health():
+    return {
+        "health": "ok",
+        "version": f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH} ({VERSION_DATE})",
+    }
 
 
 @app.post("/tunnel", response_class=PlainTextResponse)
-def handle_tunnel(target: TunnelObject):
+async def handle_tunnel(target: TunnelObject):
+    print(target)
+    if target.service == TunnelService.LOCALIP:
+        return await localIPInfo.query(target.ip)
     try:
-        target = process_tunnel_obj(target)
+        target = await process_tunnel_obj(target)
         url = target.url
         headers = target.headers
         handle = pycurl.Curl()
@@ -84,15 +133,10 @@ def handle_tunnel(target: TunnelObject):
         handle.close()
         buffer.close()
     except Exception as e:
-        print(e)
-        return {}
+        logger.error(e)
+        return "{}"
 
     return body
-
-
-@app.post("/localip", response_class=PlainTextResponse)
-def handle_localip(target: LocalIPDBObject):
-    print(target)
 
 
 if __name__ == "__main__":
