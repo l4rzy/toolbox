@@ -129,8 +129,8 @@ class DTSVirusTotalReport(widget.CTkFrame):
             firstResult = data.data[0].attributes
             firstResultType = data.data[0].type
             self.label.set(
-                "for",
-                f"({data.data[0].type}) {data.data[0].id}",
+                f"for ({data.data[0].type})",
+                f"{data.data[0].id}",
                 f"https://www.virustotal.com/gui/{firstResultType}/{data.data[0].id}",
             )
             assert isinstance(firstResult, VTAttributes)
@@ -250,6 +250,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
 
     def clear(self):
         self.reportCategories.delete("0.0", "end")
+        self.reportCategories.grid_remove()
 
     def populate(self, data: AbuseObject | None):
         if data is None:
@@ -508,7 +509,7 @@ class DTSCirclCVEReport(widget.CTkFrame):
 
         try:
             self.label.set("for", data.id, f"https://cve.circl.lu/cve/{data.id}")
-            self.result.configure(text=f"Published on {data.Published}")
+            self.result.configure(text=f"Published on {data.Published}, last modified on {data.last_modified}")
             desc = data.summary
             if len(desc) > 450:
                 shortDesc = desc[:450]
