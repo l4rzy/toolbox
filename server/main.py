@@ -54,6 +54,9 @@ class LocalIpInfo:
                 self.disabled = True
         res = f"Local IP {ip} not found in database!"
 
+        if self.disabled:
+            return res
+
         for row in self.db:
             try:
                 if ipaddress.IPv4Address(ip) in ipaddress.IPv4Network(row[0]):

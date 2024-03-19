@@ -575,33 +575,32 @@ class LocalIpInfo:
         """
         offload the work to tunnel for more control over database
         """
-        c = pycurl.Curl()
-        c.setopt(c.URL, self.tunnel)
+        handle = pycurl.Curl()
+        handle.setopt(handle.URL, self.tunnel)
         buffer = io.BytesIO()
-        c.setopt(pycurl.WRITEFUNCTION, buffer.write)
-        c.setopt(
+        handle.setopt(pycurl.WRITEFUNCTION, buffer.write)
+        handle.setopt(
             pycurl.USERAGENT,
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
         )
         headers = ["Accept:application/json", "Content-Type:application/json"]
 
-        c.setopt(pycurl.HTTPHEADER, headers)
+        handle.setopt(pycurl.HTTPHEADER, headers)
         datas = json.dumps({"service": TunnelService.LOCALIP, "ip": ip4})
-        c.setopt(c.POSTFIELDS, datas)
+        handle.setopt(handle.POSTFIELDS, datas)
         try:
-            c.perform()
+            handle.perform()
         except Exception as e:
             print(f"[libcurl] network error: {e}")
-        code: int = c.getinfo(pycurl.RESPONSE_CODE)
+        code: int = handle.getinfo(pycurl.RESPONSE_CODE)
         body = buffer.getvalue()
-        c.close()
+        handle.close()
         buffer.close()
 
         if code == 200:
-            return body
+            return body.decode()
         else:
             return f"Local IP {ip4} not found in database!"
-
 
     def query(self, ip):
         if self.tunnel is not None:

@@ -7,6 +7,6 @@ build/*
 config.ini
 .vscode/*
 *.exe
-*.txt
+log.txt
 *.zip
 *.csv
