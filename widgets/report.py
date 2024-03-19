@@ -199,6 +199,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
         super().__init__(master, **kwargs)
         self.error = False
         self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(8, weight=1)
 
         self.title = widget.CTkLabel(
             self, justify="center", font=widget.CTkFont(size=18, weight="bold")
@@ -313,7 +314,7 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
             for catnum, times in reportedCats:
                 textbuf += f"- {ABUSE_CATEGORIES[catnum]}: {times} {'times' if times > 1 else 'time'}\n"
             self.reportCategories.grid(
-                row=8, column=0, padx=6, pady=10, columnspan=1, rowspan=1, sticky="NSEW"
+                row=8, column=0, padx=6, pady=6, columnspan=1, rowspan=1, sticky="NSEW"
             )
             self.reportCategories.insert("0.0", textbuf)
 
@@ -509,7 +510,9 @@ class DTSCirclCVEReport(widget.CTkFrame):
 
         try:
             self.label.set("for", data.id, f"https://cve.circl.lu/cve/{data.id}")
-            self.result.configure(text=f"Published on {data.Published}, last modified on {data.last_modified}")
+            self.result.configure(
+                text=f"Published on {data.Published}, last modified on {data.last_modified}"
+            )
             desc = data.summary
             if len(desc) > 450:
                 shortDesc = desc[:450]
