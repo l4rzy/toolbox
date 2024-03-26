@@ -72,7 +72,7 @@ class AbuseDataObject(BaseModel):
     abuseConfidenceScore: int
     countryCode: Optional[str]
     usageType: Optional[str]
-    isp: str
+    isp: Optional[str]
     domain: Optional[str]
     hostnames: List
     isTor: bool

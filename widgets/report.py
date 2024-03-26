@@ -251,6 +251,10 @@ class DTSAbuseIPDBReport(widget.CTkFrame):
 
     def clear(self):
         self.reportCategories.delete("0.0", "end")
+        self.isp.grid_remove()
+        self.usageType.grid_remove()
+        self.domain.grid_remove()
+        self.country.grid_remove()
         self.reportCategories.grid_remove()
 
     def populate(self, data: AbuseObject | None):

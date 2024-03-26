@@ -109,7 +109,6 @@ async def get_health():
 
 @app.post("/tunnel", response_class=PlainTextResponse)
 async def handle_tunnel(target: TunnelObject):
-    print(target)
     if target.service == TunnelService.LOCALIP:
         return await localIPInfo.query(target.ip)
     try:
