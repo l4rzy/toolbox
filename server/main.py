@@ -10,14 +10,16 @@ import ipaddress
 from pydantic import BaseModel
 from enum import Enum
 from typing import Optional
+from functools import cache
+import random
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 4
 VERSION_PATCH = 6
 VERSION_DATE = "2024 Mar 18"
 
-ABUSEIPDB_KEY = ""
-VIRUSTOTAL_KEY = ""
+ABUSEIPDB_KEYS = ("",)
+VIRUSTOTAL_KEYS = ("",)
 
 
 class TunnelService(str, Enum):
@@ -82,7 +84,7 @@ async def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
             target.headers.remove("Key: None")
         except Exception:
             pass
-        target.headers.append(f"Key: {ABUSEIPDB_KEY}")
+        target.headers.append(f"Key: {random.choice(ABUSEIPDB_KEYS)}")
 
     elif target.service == TunnelService.VIRUSTOTAL:
         for h in target.headers:
@@ -93,7 +95,7 @@ async def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
             target.headers.remove("x-apikey: None")
         except Exception:
             pass
-        target.headers.append(f"x-apikey: {VIRUSTOTAL_KEY}")
+        target.headers.append(f"x-apikey: {random.choice(VIRUSTOTAL_KEYS)}")
     else:
         pass
     return target
@@ -107,6 +109,7 @@ async def get_health():
     }
 
 
+@cache
 @app.post("/tunnel", response_class=PlainTextResponse)
 async def handle_tunnel(target: TunnelObject):
     if target.service == TunnelService.LOCALIP:
