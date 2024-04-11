@@ -1,7 +1,8 @@
 import re
-from .config import DTSConfig
 import ipaddress
 import validators
+
+from .config import DTSConfig
 from .structure import DTSInputSource
 
 # stolen from https://ihateregex.io/expr/ip/
@@ -30,12 +31,46 @@ BASE64 = re.compile(
 
 
 class DTSAnalyzer:
+    """
+    The DTSAnalyzer class is responsible for analyzing and processing text input in the DTS Toolbox.
+
+    Attributes:
+        config (DTSConfig): The configuration object for the analyzer.
+        lastText (str): The last processed text.
+        source (str): The source of the input.
+        text (str): The input text to be analyzed.
+        content (str): The processed content after analysis.
+        total (int): The total number of occurrences found in the text.
+        insertable (bool): Indicates whether the content can be inserted.
+        isComplex (bool): Indicates whether the input is complex.
+        correction (bool): Indicates whether the analyzer is performing a correction.
+        skipped (bool): Indicates whether the analysis was skipped.
+        message (str): The message associated with the analysis.
+        dataClass (dict): A dictionary containing the categorized data.
+
+    Methods:
+        __init__(self, config=None): Initializes a new instance of the DTSAnalyzer class.
+        reset(self): Resets the analyzer's attributes to their default values.
+        process(self, source, text): Processes the input text and performs the analysis.
+        truefalse(self, fn, **kwargs) -> bool: Executes a validation function and returns the result.
+        has_result(self): Checks if the analyzer has a result.
+        has_complex_data(self): Checks if the input has complex data.
+        is_ip(self) -> bool: Checks if the input is an IP address.
+        is_hash(self) -> bool: Checks if the input is a hash value.
+        is_mac(self) -> bool: Checks if the input is a MAC address.
+        is_base64(self): Checks if the input is in Base64 format.
+        is_cve(self): Checks if the input is a CVE identifier.
+        is_user(self): Checks if the input is a user identifier.
+        is_pcomputer(self): Checks if the input is a computer identifier.
+        is_url(self): Checks if the input is a URL or domain.
+        is_internal_ip(self): Checks if the input is an internal IP address.
+        is_ocr_result(self): Checks if the input is an OCR result.
+    """
+
     def __init__(self, config: DTSConfig = None):
         self.config = config
-
         self.lastText = ""
         self.reset()
-
         self.categorizers = {}
         self.categorizers["ipv4"] = re.compile(IPV4ADDR)
         self.categorizers["ipv6"] = re.compile(IPV6ADDR)
@@ -49,6 +84,9 @@ class DTSAnalyzer:
         self.categorizers["pcomputer"] = re.compile(PCOMPUTER)
 
     def reset(self):
+        """
+        Resets the analyzer's attributes to their default values.
+        """
         self.source = ""
         self.text = ""
         self.content = ""
@@ -61,6 +99,13 @@ class DTSAnalyzer:
         self.dataClass = {}
 
     def process(self, source, text):
+        """
+        Processes the input text and performs the analysis.
+
+        Args:
+            source (str): The source of the input.
+            text (str): The input text to be analyzed.
+        """
         # text report can bypass max length check
         if (
             source != DTSInputSource.TEXT_REPORT
@@ -123,6 +168,16 @@ class DTSAnalyzer:
             self.content = self.text
 
     def truefalse(self, fn, **kwargs) -> bool:
+        """
+        Executes a validation function and returns the result.
+
+        Args:
+            fn (function): The validation function to be executed.
+            **kwargs: Additional keyword arguments to be passed to the validation function.
+
+        Returns:
+            bool: The result of the validation function.
+        """
         try:
             return fn(self.content, **kwargs)
         except Exception as e:
@@ -130,19 +185,43 @@ class DTSAnalyzer:
             return False
 
     def has_result(self):
+        """
+        Checks if the analyzer has a result.
+
+        Returns:
+            bool: True if the analyzer has a result, False otherwise.
+        """
         return self.hasResult
 
     def has_complex_data(self):
+        """
+        Checks if the input has complex data.
+
+        Returns:
+            bool: True if the input has complex data, False otherwise.
+        """
         if self.isComplex or self.text != self.content:
             return True
         return False
 
     def is_ip(self) -> bool:
+        """
+        Checks if the input is an IP address.
+
+        Returns:
+            bool: True if the input is an IP address, False otherwise.
+        """
         return self.truefalse(validators.ipv4, cidr=False) or self.truefalse(
             validators.ipv6, cidr=False
         )
 
     def is_hash(self) -> bool:
+        """
+        Checks if the input is a hash value.
+
+        Returns:
+            bool: True if the input is a hash value, False otherwise.
+        """
         return (
             self.truefalse(validators.md5)
             or self.truefalse(validators.sha1)
@@ -151,30 +230,77 @@ class DTSAnalyzer:
         )
 
     def is_mac(self) -> bool:
+        """
+        Checks if the input is a MAC address.
+
+        Returns:
+            bool: True if the input is a MAC address, False otherwise.
+        """
         return self.truefalse(validators.mac_address)
 
     def is_base64(self):
+        """
+        Checks if the input is in Base64 format.
+
+        Returns:
+            bool: True if the input is in Base64 format, False otherwise.
+        """
         return BASE64.match(self.text)
 
     def is_cve(self):
+        """
+        Checks if the input is a CVE identifier.
+
+        Returns:
+            bool: True if the input is a CVE identifier, False otherwise.
+        """
         return any(item in self.dataClass for item in ["cve"]) or self.categorizers[
             "cve"
         ].match(self.text)
 
     def is_user(self):
+        """
+        Checks if the input is a user identifier.
+
+        Returns:
+            bool: True if the input is a user identifier, False otherwise.
+        """
         return any(item in self.dataClass for item in ["user"])
 
     def is_pcomputer(self):
+        """
+        Checks if the input is a computer identifier.
+
+        Returns:
+            bool: True if the input is a computer identifier, False otherwise.
+        """
         return any(
             item in self.dataClass for item in ["pcomputer"]
         ) or self.categorizers["pcomputer"].match(self.text)
 
     def is_url(self):
+        """
+        Checks if the input is a URL or domain.
+
+        Returns:
+            bool: True if the input is a URL or domain, False otherwise.
+        """
         return self.truefalse(validators.url) or self.truefalse(validators.domain)
 
     def is_internal_ip(self):
+        """
+        Checks if the input is an internal IP address.
+
+        Returns:
+            bool: True if the input is an internal IP address, False otherwise.
+        """
         return self.is_ip() and ipaddress.ip_address(self.content).is_private is True
 
-    # should be called after all other checks
     def is_ocr_result(self):
+        """
+        Checks if the input is an OCR result.
+
+        Returns:
+            bool: True if the input is an OCR result, False otherwise.
+        """
         return True if self.source == "ocr" else False

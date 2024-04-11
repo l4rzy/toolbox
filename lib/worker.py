@@ -27,11 +27,36 @@ class TunnelService(str, Enum):
 
 
 class CmdWrapper:
+    """
+    A class that wraps command-line execution functionality.
+
+    Args:
+        exe (str): The path to the executable file.
+
+    Attributes:
+        exe (str): The path to the executable file.
+        process (subprocess.Popen): The subprocess that represents the running command.
+
+    Methods:
+        thread_fn(id, cmdline, callback): Executes the command in a separate thread and calls the callback function with the output.
+        thread_fn_pipe(id, cmdline, callback): Executes the command in a separate thread with stdout redirected to a pipe and calls the callback function with the output.
+        query(id, args): Executes the command with the specified arguments and runs the callback function with the output.
+        force_quit(): Terminates the running command forcefully.
+    """
+
     def __init__(self, exe=""):
         self.exe = exe
         self.process = None
 
     def thread_fn(self, id, cmdline, callback):
+        """
+        Executes the command in a separate thread and calls the callback function with the output.
+
+        Args:
+            id (int): The ID of the command.
+            cmdline (list): The command-line arguments.
+            callback (function): The callback function to be called with the output.
+        """
         import uuid
         import os
         import subprocess
@@ -53,6 +78,14 @@ class CmdWrapper:
         callback(id, output)
 
     def thread_fn_pipe(self, id, cmdline, callback):
+        """
+        Executes the command in a separate thread with stdout redirected to a pipe and calls the callback function with the output.
+
+        Args:
+            id (int): The ID of the command.
+            cmdline (list): The command-line arguments.
+            callback (function): The callback function to be called with the output.
+        """
         import subprocess
 
         self.process = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=None)
@@ -63,6 +96,13 @@ class CmdWrapper:
         callback(id, output)
 
     def query(self, id, args):
+        """
+        Executes the command with the specified arguments and runs the callback function with the output.
+
+        Args:
+            id (int): The ID of the command.
+            args (str): The command-line arguments.
+        """
         cmdline = [self.exe, args]
 
         print(f"[worker] running: {cmdline}")
@@ -70,6 +110,9 @@ class CmdWrapper:
         t.start()
 
     def force_quit(self):
+        """
+        Terminates the running command forcefully.
+        """
         self.process.kill()
 
 
@@ -99,12 +142,35 @@ class Curl(CmdWrapper):
 
 
 class LibCurl:
+    """
+    A class that provides methods for performing HTTP requests using libcurl.
+
+    Args:
+        callback (function, optional): The callback function to be called after the request is completed. Defaults to None.
+        internetConfig (tuple, optional): A tuple containing the tunnel URL, proxy, and authentication information. Defaults to ().
+        debug (bool, optional): A flag indicating whether to enable debug mode. Defaults to False.
+    """
+
     def __init__(self, callback=None, internetConfig=(), debug=False):
         self.callback = callback
         (self.tunnelUrl, self.proxy, self.auth) = internetConfig
         self.debug = debug
 
     def thread_fn(self, id, originalText, url, callback, headers=None, cookies=None):
+        """
+        Perform an HTTP request using libcurl in a separate thread.
+
+        Args:
+            id (int): The ID of the request.
+            originalText (str): The original text associated with the request.
+            url (str): The URL to send the request to.
+            callback (function): The callback function to be called after the request is completed.
+            headers (list, optional): Additional headers to include in the request. Defaults to None.
+            cookies (list, optional): Cookies to include in the request. Defaults to None.
+
+        Returns:
+            None
+        """
         handle = pycurl.Curl()
         if self.debug:
             handle.setopt(handle.VERBOSE, True)
@@ -148,6 +214,21 @@ class LibCurl:
         cookies=None,
         data=None,
     ):
+        """
+        Perform a tunnel request using libcurl in a separate thread.
+
+        Args:
+            id (int): The ID of the tunnel request.
+            originalText (str): The original text associated with the tunnel request.
+            tunnelUrl (str): The URL to send the tunnel request to.
+            callback (function): The callback function to be called after the tunnel request is completed.
+            headers (list, optional): Additional headers to include in the tunnel request. Defaults to None.
+            cookies (list, optional): Cookies to include in the tunnel request. Defaults to None.
+            data (dict, optional): The data to send in the tunnel request body. Defaults to None.
+
+        Returns:
+            None
+        """
         c = pycurl.Curl()
         c.setopt(c.URL, tunnelUrl)
         buffer = io.BytesIO()
@@ -174,6 +255,19 @@ class LibCurl:
         callback(id, (code, originalText, body.decode()))
 
     def query(self, id, originalText, url, headers={}, cookies={}):
+        """
+        Perform an HTTP request using libcurl in a separate thread.
+
+        Args:
+            id (int): The ID of the request.
+            originalText (str): The original text associated with the request.
+            url (str): The URL to send the request to.
+            headers (dict, optional): Additional headers to include in the request. Defaults to {}.
+            cookies (dict, optional): Cookies to include in the request. Defaults to {}.
+
+        Returns:
+            None
+        """
         pc_headers = []
         for header, value in headers.items():
             pc_headers.append(f"{header}: {value}")
@@ -186,6 +280,18 @@ class LibCurl:
         t.start()
 
     def tunnel(self, id, originalText, tunnelUrl, data):
+        """
+        Perform a tunnel request using libcurl in a separate thread.
+
+        Args:
+            id (int): The ID of the tunnel request.
+            originalText (str): The original text associated with the tunnel request.
+            tunnelUrl (str): The URL to send the tunnel request to.
+            data (dict): The data to send in the tunnel request body.
+
+        Returns:
+            None
+        """
         headers = ["Accept:application/json"]
 
         t = threading.Thread(
@@ -197,14 +303,45 @@ class LibCurl:
 
 
 class NetUser(CmdWrapper):
+    """
+    Represents a network user.
+
+    This class provides methods to query information about a network user using the 'net.exe' command.
+
+    Args:
+        ui: The user interface object.
+
+    Attributes:
+        ui: The user interface object.
+    """
+
     def __init__(self, ui):
         super().__init__("net.exe")
         self.ui = ui
 
     def parse(self, text):
+        """
+        Parses the response text and returns the parsed result.
+
+        Args:
+            text: The response text to parse.
+
+        Returns:
+            The parsed result.
+        """
         return text
 
     def query(self, id, user, domain=True):
+        """
+        Queries information about a network user.
+
+        Args:
+            id: The ID of the query.
+            user: The username of the network user.
+            domain: Whether to query the user in the domain (default is True).
+
+        """
+
         def callback(id, response):
             result = self.parse(response)
             self.ui.render(source="netuser", box=(id, user, result))
@@ -221,10 +358,35 @@ class NetUser(CmdWrapper):
 
 
 class Base64Decoder:
+    """
+    A class that decodes Base64 encoded strings.
+
+    Args:
+        ui: The user interface object.
+
+    Attributes:
+        ui: The user interface object.
+
+    Methods:
+        query: Decodes a Base64 encoded string and renders the result in the user interface.
+
+    """
+
     def __init__(self, ui):
         self.ui = ui
 
     def query(self, id, s):
+        """
+        Decodes a Base64 encoded string and renders the result in the user interface.
+
+        Args:
+            id: The identifier for the query.
+            s: The Base64 encoded string to decode.
+
+        Returns:
+            None
+
+        """
         import base64
 
         try:
@@ -237,7 +399,27 @@ class Base64Decoder:
 
 
 class AbuseIPDB:
+    """
+    Class representing the AbuseIPDB API.
+
+    Attributes:
+        apiKey (str): The API key for accessing the AbuseIPDB API.
+        ui (UI): A reference to the UI object.
+        internetConfig (InternetConfig): The internet configuration.
+        curlDebug (bool): Flag indicating whether to enable debug mode for LibCurl.
+        curl (LibCurl): The LibCurl object for making HTTP requests.
+        running (bool): Flag indicating whether the AbuseIPDB is running.
+    """
+
     def __init__(self, apiKey, ui):
+        """
+        Initializes an instance of the AbuseIPDB class.
+
+        Args:
+            apiKey (str): The API key for accessing the AbuseIPDB API.
+            ui (UI): A reference to the UI object.
+        """
+
         def callback(id, response):
             (code, originalText, body) = response
             # parse response, since result is json
@@ -251,10 +433,11 @@ class AbuseIPDB:
                 ui.render(source="abuseipdb", box=(id, originalText, abuseObject))
 
         if apiKey is None:
-            print("[abuseipdb] api key not provived, abuseipdb might not work")
+            print("[abuseipdb] api key not provided, abuseipdb might not work")
             self.apiKey = ""
+        else:
+            self.apiKey = apiKey
 
-        self.apiKey = apiKey
         self.ui = ui  # a ref to UI object
         self.internetConfig = self.ui.config.get_internet_config()
         self.curlDebug = self.ui.config.get_network_debug()
@@ -264,6 +447,14 @@ class AbuseIPDB:
         self.running = False
 
     def timeout(self, id, text, sec):
+        """
+        Sets a timeout for rendering the AbuseIPDB response.
+
+        Args:
+            id (int): The ID of the request.
+            text (str): The IP address being queried.
+            sec (int): The timeout duration in seconds.
+        """
         self.ui.after(
             sec,
             lambda: self.ui.render(source="abuseipdb", box=(id, text, None)),
@@ -271,6 +462,14 @@ class AbuseIPDB:
 
     @cache
     def query(self, id, text, maxAge=90):
+        """
+        Queries the AbuseIPDB API for information about an IP address.
+
+        Args:
+            id (int): The ID of the request.
+            text (str): The IP address to query.
+            maxAge (int): The maximum age of the data in days (default: 90).
+        """
         headers = {
             "Key": self.apiKey,
             "Accept": "application/json",
@@ -347,6 +546,23 @@ class Shodan:
 
 
 class LocalIPWizard:
+    """
+    A class that provides functionality for resolving IP addresses and retrieving IP information.
+
+    Args:
+        ui: The user interface object.
+
+    Attributes:
+        ui: The user interface object.
+        tunnel: The tunnel string.
+        ipInfo: An instance of LocalIpInfo class for querying IP information.
+
+    Methods:
+        thread_fn: A helper method for performing IP address resolution in a separate thread.
+        query: Resolves an IP address and retrieves IP information.
+
+    """
+
     def __init__(self, ui):
         self.ui = ui
         ipdb = ui.config.get_local_ip_db()
@@ -354,6 +570,16 @@ class LocalIPWizard:
         self.ipInfo = LocalIpInfo(dataFile=ipdb, tunnel=self.tunnel)
 
     def thread_fn(self, id, host, callback, reverse):
+        """
+        A helper method for performing IP address resolution in a separate thread.
+
+        Args:
+            id: The ID of the query.
+            host: The host to resolve.
+            callback: The callback function to be called with the result.
+            reverse: A boolean indicating whether to perform reverse DNS lookup.
+
+        """
         ipInfo = ""
         resp = ""
         try:
@@ -371,6 +597,16 @@ class LocalIPWizard:
 
     @cache
     def query(self, id, host, reverse=False):
+        """
+        Resolves an IP address and retrieves IP information.
+
+        Args:
+            id: The ID of the query.
+            host: The host to resolve.
+            reverse: A boolean indicating whether to perform reverse DNS lookup.
+
+        """
+
         def thread_callback(id, response):
             if response == ("", ""):
                 result = f"{host} was not resolvable."
@@ -387,6 +623,22 @@ class LocalIPWizard:
 
 
 class VirusTotal:
+    """
+    Represents a VirusTotal object used for querying the VirusTotal API.
+
+    Args:
+        apiKey (str): The API key for accessing the VirusTotal API.
+        ui (UI): A reference to the UI object.
+
+    Attributes:
+        apiKey (str): The API key for accessing the VirusTotal API.
+        ui (UI): A reference to the UI object.
+        internetConfig (InternetConfig): The internet configuration.
+        curlDebug (bool): Flag indicating whether to enable network debugging.
+        curl (LibCurl): The LibCurl object for making HTTP requests.
+
+    """
+
     def __init__(self, apiKey, ui):
         def callback(id, response):
             (code, originalText, body) = response
@@ -401,11 +653,12 @@ class VirusTotal:
                 ui.render(source="virustotal", box=(id, originalText, virusTotalObject))
 
         if apiKey is None:
-            print("[virustotal] api key not provived, virustotal might not work")
+            print("[virustotal] api key not provided, virustotal might not work")
             self.apiKey = ""
+        else:
+            self.apiKey = apiKey
 
         self.ui = ui  # a ref to UI object
-        self.apiKey = apiKey
         self.internetConfig = self.ui.config.get_internet_config()
         self.curlDebug = self.ui.config.get_network_debug()
         self.curl = LibCurl(
@@ -491,6 +744,20 @@ class NISTCVE:
 
 
 class CirclCVE:
+    """
+    A class that represents a CirclCVE object.
+
+    Attributes:
+        ui (UI): A reference to the UI object.
+        internetConfig (dict): The internet configuration.
+        curlDebug (bool): Flag indicating whether to enable curl debugging.
+        curl (LibCurl): An instance of the LibCurl class.
+
+    Methods:
+        timeout(id, cve, sec): Sets a timeout for rendering the CirclCVE object.
+        query(id, cve, options={}): Queries the CirclCVE API for a specific CVE.
+    """
+
     def __init__(self, ui):
         def callback(id, response):
             (code, originalText, body) = response
@@ -515,6 +782,17 @@ class CirclCVE:
         )
 
     def timeout(self, id, cve, sec):
+        """
+        Sets a timeout for rendering the CirclCVE object.
+
+        Args:
+            id (int): The ID of the object.
+            cve (str): The CVE identifier.
+            sec (int): The number of seconds to wait before rendering.
+
+        Returns:
+            None
+        """
         self.ui.after(
             sec,
             lambda: self.ui.render(source="circlcve", box=(id, cve, None)),
@@ -522,6 +800,17 @@ class CirclCVE:
 
     @cache
     def query(self, id, cve, options={}):
+        """
+        Queries the CirclCVE API for a specific CVE.
+
+        Args:
+            id (int): The ID of the object.
+            cve (str): The CVE identifier.
+            options (dict): Additional options for the query.
+
+        Returns:
+            None
+        """
         url = f"https://cve.circl.lu/api/cve/{cve.upper()}"
         try:
             if self.internetConfig[0] is not None:
@@ -675,6 +964,27 @@ class TesserOCR:
 
 
 class DTSWorker:
+    """
+    DTSWorker class represents a worker that performs various tasks based on the given target.
+
+    Args:
+        config (object): The configuration object.
+        ui (object): The user interface object.
+
+    Attributes:
+        isWorking (bool): Indicates whether the worker is currently working.
+        config (object): The configuration object.
+        ui (object): The user interface object.
+        virusTotal (object): The VirusTotal API object.
+        abuseIPDB (object): The AbuseIPDB API object.
+        circleCVE (object): The CirclCVE object.
+        netUser (object): The NetUser object.
+        base64Decoder (object): The Base64Decoder object.
+        localIPWizard (object): The LocalIPWizard object.
+        macAddressLookup (object): The MacAddress object.
+        ocrApi (object): The TesserOCR object.
+    """
+
     def __init__(self, config, ui):
         self.isWorking = False
         self.config = config
@@ -682,20 +992,26 @@ class DTSWorker:
 
         virusTotalKey = self.config.get("api", "virustotal")
         abuseIPDBKey = self.config.get("api", "abuseipdb")
-        # shodanAPIKey = self.config.get("api", "shodan")
 
         self.virusTotal = VirusTotal(apiKey=virusTotalKey, ui=self.ui)
         self.abuseIPDB = AbuseIPDB(apiKey=abuseIPDBKey, ui=self.ui)
-        # self.nistCVE = NISTCVE(ui=self.ui)
         self.circleCVE = CirclCVE(ui=self.ui)
         self.netUser = NetUser(ui=self.ui)
         self.base64Decoder = Base64Decoder(ui=self.ui)
-        # self.shodan = Shodan(apiKey=shodanAPIKey, ui=self.ui)
         self.localIPWizard = LocalIPWizard(ui=self.ui)
         self.macAddressLookup = MacAddress(ui=self.ui)
         self.ocrApi = TesserOCR(ui=self.ui)
 
     def run(self, id, target={}, text="", img=None):
+        """
+        Runs the worker with the given target.
+
+        Args:
+            id (int): The ID of the task.
+            target (dict): The target to be queried.
+            text (str): The text to be queried.
+            img (object): The image object to be queried.
+        """
         print(f"[worker] trying to run {target} with target = `{text}`")
         for t in target:
             if t == "virustotal":
@@ -703,8 +1019,6 @@ class DTSWorker:
             elif t == "abuseipdb":
                 self.abuseIPDB.query(id, text)
             elif t == "cve":
-                # disable nist cve since they are slow and require api token now
-                # self.nistCVE.query(id, text)
                 self.circleCVE.query(id, text)
             elif t == "netuser":
                 self.netUser.query(id, text)

@@ -6,12 +6,15 @@ import io
 import logging
 import csv
 import ipaddress
+import configparser
+import os
 
 from pydantic import BaseModel
 from enum import Enum
 from typing import Optional
-from functools import cache
 import random
+from datetime import datetime, timedelta
+import yaml
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 4
@@ -37,13 +40,83 @@ class TunnelObject(BaseModel):
     headers: Optional[list[str]] = []
 
 
+class YamlConfigParser:
+    """
+    A class for parsing YAML configuration files.
+
+    Args:
+        configPath (str, optional): The path to the YAML configuration file. Defaults to "./config.yaml".
+
+    Attributes:
+        configPath (str): The path to the YAML configuration file.
+        config (dict): The parsed YAML configuration.
+
+    Methods:
+        load(): Loads and parses the YAML configuration file.
+        get(key): Retrieves the value associated with the specified key in the configuration.
+
+    """
+
+    def __init__(self, configPath="./config.yaml"):
+        self.configPath = configPath
+        self.config = {}
+
+    def load(self):
+        """
+        Loads and parses the YAML configuration file.
+
+        Raises:
+            FileNotFoundError: If the configuration file is not found.
+            yaml.YAMLError: If there is an error parsing the YAML configuration.
+
+        """
+        try:
+            with open(self.configPath, "r") as f:
+                self.config = yaml.safe_load(f)
+        except FileNotFoundError:
+            print(f"[yamlconfig] configuration file not found: {self.configPath}")
+        except yaml.YAMLError as e:
+            print(f"[yamlconfig] error parsing configuration: {e}")
+
+    def get(self, key):
+        """
+        Retrieves the value associated with the specified key in the configuration.
+
+        Args:
+            key (str): The key name in the configuration.
+
+        Returns:
+            Any: The value associated with the specified key, or None if not found.
+
+        """
+        return self.config.get(key)
+
+
 class LocalIpInfo:
+    """
+    A class that provides information about local IP addresses.
+
+    Attributes:
+        db (list): The database containing IP address information.
+        dataFile (str): The path to the data file used for the database.
+        disabled (bool): A flag indicating if the database is disabled.
+    """
+
     def __init__(self, dataFile):
         self.db = None
         self.dataFile = dataFile
         self.disabled = False
 
     async def query(self, ip):
+        """
+        Queries the database for information about the given IP address.
+
+        Args:
+            ip (str): The IP address to query.
+
+        Returns:
+            str: The information about the IP address.
+        """
         if self.db is None:
             try:
                 file = open(self.dataFile, "rt")
@@ -72,9 +145,22 @@ class LocalIpInfo:
 app = FastAPI(title="DTS Toolbox", redoc_url=None)
 localIPInfo = LocalIpInfo("localIPDB.csv")
 logger = logging.getLogger()
+config = YamlConfigParser("config.yaml")
+config.load()
+cache = {}
 
 
 async def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
+    """
+    Process the given TunnelObject and add missing API keys for specified services.
+
+    Args:
+        target (TunnelObject): The TunnelObject to be processed.
+
+    Returns:
+        TunnelObject: The processed TunnelObject with added API keys.
+
+    """
     if target.service == TunnelService.ABUSEIPDB:
         for h in target.headers:
             if "Key" in h and h != "Key: None":
@@ -109,11 +195,30 @@ async def get_health():
     }
 
 
-@cache
 @app.post("/tunnel", response_class=PlainTextResponse)
 async def handle_tunnel(target: TunnelObject):
+    """
+    Handles the tunnel request and returns the response body.
+
+    Args:
+        target (TunnelObject): The tunnel object containing the request details.
+
+    Returns:
+        bytes: The response body.
+
+    Raises:
+        Exception: If an error occurs during the tunnel request.
+
+    """
     if target.service == TunnelService.LOCALIP:
         return await localIPInfo.query(target.ip)
+
+    # Check if result is already cached
+    if target.url in cache and datetime.now() - cache[target.url][
+        "timestamp"
+    ] < timedelta(minutes=1):
+        return cache[target.url]["result"]
+
     try:
         target = await process_tunnel_obj(target)
         url = target.url
@@ -137,6 +242,9 @@ async def handle_tunnel(target: TunnelObject):
 
         handle.close()
         buffer.close()
+
+        # Cache the result
+        cache[target.url] = {"result": body, "timestamp": datetime.now()}
     except Exception as e:
         logger.error(e)
         return "{}"

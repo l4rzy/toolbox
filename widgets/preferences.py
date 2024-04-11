@@ -12,6 +12,14 @@ class DTSPreferencesGeneral(widget.CTkFrame):
 
 
 class DTSAboutDialog(widget.CTkToplevel):
+    """
+    A custom dialog window for displaying information about the DTS Toolbox application.
+
+    Args:
+        master: The master widget (usually the root window) for this dialog.
+        **kwargs: Additional keyword arguments to be passed to the `CTkToplevel` constructor.
+    """
+
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         sh = self.winfo_screenheight()
@@ -57,6 +65,12 @@ class DTSAboutDialog(widget.CTkToplevel):
         self.bind("<FocusOut>", self.cb_on_focus_out)
 
     def cb_on_focus_out(self, event):
+        """
+        Callback function triggered when the dialog loses focus.
+
+        Args:
+            event: The event object associated with the focus out event.
+        """
         print("[about] focused out")
         # self.destroy()
 
