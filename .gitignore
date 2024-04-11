@@ -5,6 +5,7 @@ lib/__pycache__/*
 *.pyc
 build/*
 config.ini
+config.yaml
 .vscode/*
 *.exe
 log.txt

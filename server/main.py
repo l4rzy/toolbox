@@ -6,8 +6,7 @@ import io
 import logging
 import csv
 import ipaddress
-import configparser
-import os
+import hashlib
 
 from pydantic import BaseModel
 from enum import Enum
@@ -149,6 +148,8 @@ config = YamlConfigParser("config.yaml")
 config.load()
 cache = {}
 
+def hash_str(itemStr: str):
+    return hashlib.sha512(itemStr.encode()).hexdigest()
 
 async def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
     """
@@ -214,10 +215,11 @@ async def handle_tunnel(target: TunnelObject):
         return await localIPInfo.query(target.ip)
 
     # Check if result is already cached
-    if target.url in cache and datetime.now() - cache[target.url][
+    url_hash = hash_str(target.url)
+    if url_hash in cache and datetime.now() - cache[url_hash][
         "timestamp"
     ] < timedelta(minutes=1):
-        return cache[target.url]["result"]
+        return cache[url_hash]["result"]
 
     try:
         target = await process_tunnel_obj(target)
@@ -244,7 +246,7 @@ async def handle_tunnel(target: TunnelObject):
         buffer.close()
 
         # Cache the result
-        cache[target.url] = {"result": body, "timestamp": datetime.now()}
+        cache[hash_str(target.url)] = {"result": body, "timestamp": datetime.now()}
     except Exception as e:
         logger.error(e)
         return "{}"
