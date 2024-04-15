@@ -88,7 +88,10 @@ class YamlConfigParser:
             Any: The value associated with the specified key, or None if not found.
 
         """
-        return self.config.get(key)
+        try:
+            return self.config.get(key)
+        except Exception:
+            return []
 
 
 class LocalIpInfo:
@@ -171,7 +174,7 @@ async def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
             target.headers.remove("Key: None")
         except Exception:
             pass
-        target.headers.append(f"Key: {random.choice(ABUSEIPDB_KEYS)}")
+        target.headers.append(f"Key: {random.choice(config.get('abuseipdb'))}")
 
     elif target.service == TunnelService.VIRUSTOTAL:
         for h in target.headers:
@@ -182,7 +185,7 @@ async def process_tunnel_obj(target: TunnelObject) -> TunnelObject:
             target.headers.remove("x-apikey: None")
         except Exception:
             pass
-        target.headers.append(f"x-apikey: {random.choice(VIRUSTOTAL_KEYS)}")
+        target.headers.append(f"x-apikey: {random.choice(config.get('virustotal'))}")
     else:
         pass
     return target
