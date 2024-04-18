@@ -434,9 +434,8 @@ class AbuseIPDB:
 
         if apiKey is None:
             print("[abuseipdb] api key not provided, abuseipdb might not work")
-            self.apiKey = ""
-        else:
-            self.apiKey = apiKey
+
+        self.apiKey = apiKey
 
         self.ui = ui  # a ref to UI object
         self.internetConfig = self.ui.config.get_internet_config()
@@ -654,9 +653,8 @@ class VirusTotal:
 
         if apiKey is None:
             print("[virustotal] api key not provided, virustotal might not work")
-            self.apiKey = ""
-        else:
-            self.apiKey = apiKey
+
+        self.apiKey = apiKey
 
         self.ui = ui  # a ref to UI object
         self.internetConfig = self.ui.config.get_internet_config()
