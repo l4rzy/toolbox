@@ -239,8 +239,8 @@ class DTSToolBox(widget.CTk):
         self.cb_on_input_update(source=DTSInputSource.USER, text=text)
 
     def cb_on_input_update(self, source, text):
-        if self.showingNotification is True:
-            return
+        #if self.showingNotification is True:
+        #    return
 
         self.analyzer.process(source, text)
         if self.analyzer.skipped:
